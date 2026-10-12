@@ -2,6 +2,11 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { CompanionBridge } from '../shared/contracts.cjs'
 // Type imports are erased: the sandboxed preload requires only Electron.
 const bridge: CompanionBridge = {
+  interviews: {
+    start: input => ipcRenderer.invoke('interviews:start', input), get: input => ipcRenderer.invoke('interviews:get', input), list: () => ipcRenderer.invoke('interviews:list', null),
+    answer: input => ipcRenderer.invoke('interviews:answer', input), connect: input => ipcRenderer.invoke('interviews:connect', input), audio: input => ipcRenderer.invoke('interviews:audio', input), poll: input => ipcRenderer.invoke('interviews:poll', input),
+    pause: input => ipcRenderer.invoke('interviews:pause', input), resume: input => ipcRenderer.invoke('interviews:resume', input), end: input => ipcRenderer.invoke('interviews:end', input), evaluate: input => ipcRenderer.invoke('interviews:evaluate', input),
+  },
   intelligence: {
     capabilities: () => ipcRenderer.invoke('intelligence:capabilities', null),
     start: input => ipcRenderer.invoke('intelligence:start', input), get: input => ipcRenderer.invoke('intelligence:get', input), search: input => ipcRenderer.invoke('intelligence:search', input),

@@ -30,3 +30,10 @@
 - Use bounded sequenced PCM16 mono 24 kHz IPC packets. Keep partial excerpts and interruption notices; exclude partial text from AI action evidence.
 - Validate structured summaries and live highlights against finalized transcript IDs and exact quoted substrings. Keep explicit assignments and AI-suggested activities distinguishable; do not automatically create planner tasks.
 - Test lifecycle, transcript recovery, audio format, consent/ownership, and evidence with mocked SDK sockets and isolated databases; never capture real microphones in automated tests.
+
+## AI interviews
+- AI interviews use `InterviewService`, `InterviewRepository`, and migration 4, separate from legacy offline practice snapshots. Persist candidate answers before any follow-up request.
+- Keep role/level/type/duration/job context/language/mode in validated contracts. All AI requests and Realtime sockets remain in main; narrowly scoped IPC owns each active interview.
+- Rubric version 1 is defined in shared interview contracts. Scores require exact finalized candidate-answer evidence; insufficient evidence uses null. Never predict hiring probability or infer vocal/personal traits from transcripts.
+- Voice uses consented mono PCM24k input, ephemeral bounded output playback, explicit turn taking, and durable duplicate-safe transcripts. Stop devices/playback on pause, navigation, interruption, duration expiry, or exit. Resume restores finalized text only, never raw audio.
+- Compare only matching role, experience, type, language, and rubric versions; disclose question/duration/mode differences. Test lifecycle, schema/evidence rejection, concurrency, restart recovery, and mocked native voice paths without real API calls.

@@ -22,6 +22,7 @@ export const migrations = [
    CREATE TABLE intelligence_segments (id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES intelligence_sessions(id) ON DELETE CASCADE, position INTEGER NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)), UNIQUE(session_id, position));
    CREATE INDEX intelligence_state ON intelligence_sessions(state, started_at);
    CREATE INDEX intelligence_segment_session ON intelligence_segments(session_id, position);`,
+  `CREATE TABLE ai_interviews (id TEXT PRIMARY KEY, state TEXT NOT NULL, started_at TEXT NOT NULL, data TEXT NOT NULL CHECK(json_valid(data))); CREATE INDEX ai_interviews_state ON ai_interviews(state, started_at);`,
 ]
 export function transaction<T>(db: DatabaseSync, work: () => T): T {
   db.exec('BEGIN IMMEDIATE')

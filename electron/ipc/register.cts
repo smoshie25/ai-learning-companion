@@ -1,3 +1,5 @@
+import { interviewConfigSchema, interviewRefSchema, interviewAnswerSchema, interviewResumeSchema, interviewPollSchema } from '../../shared/interview-contracts.cjs'
+import type { InterviewService } from '../ai/interview-service.cjs'
 import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { z } from 'zod'
 import { workspaceSchema, updateSchema, tutorSchema, interviewRequestSchema, realtimeConnectSchema, realtimeSendSchema, realtimeCloseSchema, saveKeySchema, type Update, type Result } from '../../shared/contracts.cjs'
@@ -8,7 +10,7 @@ import { AppError, safeError } from '../ai/errors.cjs'
 import { assertTrustedSender, validatePayload } from './validation.cjs'
 import { startRecordingSchema, recordingRefSchema, resumeRecordingSchema, audioChunkSchema, noteSchema, pinSchema, searchRecordingsSchema } from '../../shared/session-contracts.cjs'
 import type { SessionIntelligence } from '../ai/session-intelligence.cjs'
-export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: string, repository: WorkspaceRepository, ai: AIService, realtime: RealtimeService, intelligence: SessionIntelligence) {
+export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: string, repository: WorkspaceRepository, ai: AIService, realtime: RealtimeService, intelligence: SessionIntelligence, interviews: InterviewService) {
   const busy = new Set<number>(); const requests = new Map<number, number[]>()
   const sender = (event: IpcMainInvokeEvent) => {
     const window = getWindow(); const frame = event.senderFrame
@@ -36,7 +38,7 @@ export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: 
   handle('workspace:bootstrap', workspaceSchema, input => repository.bootstrap(input))
   handle('workspace:update', updateSchema, input => { repository.update(input as Update); return null })
   handle('ai:status', none, () => ai.status())
-  const changeCredential = async (work: () => Promise<import('../../shared/contracts.cjs').AIStatus>) => { if (realtime.hasConnections() || intelligence.hasAIWork()) throw new AppError('BUSY', 'Pause recording and disconnect Realtime before changing your API key.'); return work() }
+  const changeCredential = async (work: () => Promise<import('../../shared/contracts.cjs').AIStatus>) => { if (realtime.hasConnections() || intelligence.hasAIWork() || interviews.hasAIWork()) throw new AppError('BUSY', 'Pause recording or voice interviews and disconnect Realtime before changing your API key.'); return work() }
   handle('ai:save-key', saveKeySchema, input => changeCredential(() => ai.saveKey(input.key)), true)
   handle('ai:remove-key', none, () => changeCredential(() => ai.removeKey()), true)
   handle('ai:validate', none, () => ai.validate(), true)
@@ -46,6 +48,17 @@ export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: 
   handle('ai:realtime-connect', realtimeConnectSchema, (input, owner) => realtime.connect(owner, input.topic), true)
   handle('ai:realtime-send', realtimeSendSchema, (input, owner) => realtime.send(owner, input.connectionId, input.text), true)
   handle('ai:realtime-close', realtimeCloseSchema, (input, owner) => realtime.close(owner, input.connectionId))
+  handle('interviews:start', interviewConfigSchema, (input, owner) => interviews.start(owner, input), true)
+  handle('interviews:get', interviewRefSchema, input => interviews.get(input.id))
+  handle('interviews:list', none, () => interviews.repository.list())
+  handle('interviews:answer', interviewAnswerSchema, (input, owner) => interviews.answer(owner, input.id, input.text), true)
+  handle('interviews:connect', interviewRefSchema, (input, owner) => interviews.connect(owner, input.id), true)
+  handle('interviews:audio', audioChunkSchema, (input, owner) => interviews.audio(owner, input.id, input.sequence, input.pcm))
+  handle('interviews:poll', interviewPollSchema, (input, owner) => interviews.poll(owner, input.id, input.after))
+  handle('interviews:pause', interviewRefSchema, (input, owner) => interviews.pause(owner, input.id))
+  handle('interviews:resume', interviewResumeSchema, (input, owner) => interviews.resume(owner, input.id, input.mode, input.consent), true)
+  handle('interviews:end', interviewRefSchema, (input, owner) => interviews.end(owner, input.id))
+  handle('interviews:evaluate', interviewRefSchema, input => interviews.evaluate(input.id), true)
   handle('intelligence:capabilities', none, () => ({ systemAudio: process.platform === 'win32' }))
   handle('intelligence:start', startRecordingSchema, (input, owner) => intelligence.start(owner, input))
   handle('intelligence:get', recordingRefSchema, input => intelligence.repository.get(input.id))
@@ -59,5 +72,5 @@ export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: 
   handle('intelligence:note', noteSchema, (input, owner) => intelligence.note(owner, input.id, input.text))
   handle('intelligence:pin', pinSchema, input => intelligence.pin(input.id, input.segmentId, input.highlighted))
   handle('intelligence:summarize', recordingRefSchema, input => intelligence.summarize(input.id), true)
-  return (owner: number) => { realtime.closeOwner(owner); intelligence.closeOwner(owner); requests.delete(owner); busy.delete(owner) }
+  return (owner: number) => { realtime.closeOwner(owner); intelligence.closeOwner(owner); interviews.closeOwner(owner); requests.delete(owner); busy.delete(owner) }
 }

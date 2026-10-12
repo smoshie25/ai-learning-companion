@@ -1,7 +1,7 @@
 import type { RecordingSnapshot } from '../../shared/session-contracts.cts'
 export type AudioCapture = { stop(): Promise<void> }
 /** Permission is gated in main by the active session and its recorded consent. No audio is kept on disk. */
-export async function captureSessionAudio(session: RecordingSnapshot, onFailure: () => void): Promise<AudioCapture> {
+export async function captureSessionAudio(session: Pick<RecordingSnapshot, 'source' | 'id'>, onFailure: () => void, transport: { connect(input: {id:string}): Promise<import('../../shared/contracts.cts').Result<unknown>>; audio(input: {id:string;sequence:number;pcm:string}): Promise<import('../../shared/contracts.cts').Result<null>> } = window.companion!.intelligence): Promise<AudioCapture> {
   const streams: MediaStream[] = []; let context: AudioContext | undefined; let worklet: AudioWorkletNode | undefined
   let stopped = false; let sequence = 0; let failed = false; let stopping: Promise<void> | undefined; let acknowledge: (() => void) | undefined
   const pending = new Set<Promise<void>>()
@@ -23,7 +23,7 @@ export async function captureSessionAudio(session: RecordingSnapshot, onFailure:
       system.getVideoTracks().forEach(track => { track.enabled = false })
     }
     streams.forEach(stream => stream.getTracks().forEach(track => track.addEventListener('ended', failure, { once: true })))
-    const connected = await window.companion!.intelligence.connect({ id: session.id })
+    const connected = await transport.connect({ id: session.id })
     if (!connected.ok) throw new Error(connected.error.message)
     context = new AudioContext({ sampleRate: 24000 })
     if (context.sampleRate !== 24000) throw new Error('This audio device cannot produce the required 24 kHz recording format.')
@@ -39,7 +39,7 @@ export async function captureSessionAudio(session: RecordingSnapshot, onFailure:
       if (pending.size >= 3) { failure(); return }
       const bytes = new Uint8Array(event.data as ArrayBuffer)
       const pcm = btoa(String.fromCharCode(...bytes))
-      const request = window.companion!.intelligence.audio({ id: session.id, sequence: sequence++, pcm }).then(result => { if (!result.ok) failure() }).catch(failure)
+      const request = transport.audio({ id: session.id, sequence: sequence++, pcm }).then(result => { if (!result.ok) failure() }).catch(failure)
       pending.add(request); void request.finally(() => pending.delete(request))
     }
     await context.resume()

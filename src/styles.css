@@ -67,3 +67,26 @@ label { display: block; font-size: 11px; color: var(--subtle); font-weight: 500;
 .intelligence-view h1,.intelligence-view .page-header p{overflow-wrap:anywhere}.recording-start{flex-wrap:wrap}
 
 .credential-actions { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+
+.interview-mode-tabs { margin-bottom: 28px; }
+.ai-interviews .interview-layout { margin-bottom: 28px; }
+.interview-form-row, .interview-score-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }
+.ai-interviews textarea { width: 100%; resize: vertical; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--foreground); font: inherit; line-height: 1.6; }
+.interview-consent { display: flex!important; flex-direction: row!important; align-items: flex-start; gap: 10px; line-height: 1.5; }
+.interview-consent input { width: 18px!important; height: 18px; flex-shrink: 0; margin-top: 3px; }
+.interview-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 18px 0; }
+.interview-transcript { display: flex; flex-direction: column; gap: 14px; max-height: 520px; overflow-y: auto; padding: 12px 4px; margin-bottom: 24px; }
+.interview-turn { padding: 20px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); max-width: 90%; }
+.interview-turn p { white-space: pre-wrap; line-height: 1.7; margin: 8px 0 0; }
+.interview-turn.user { margin-left: auto; background: var(--soft-green); }
+.interview-assessment { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 24px; }
+.interview-score-grid { margin: 24px 0; }
+.interview-score { border: 1px solid var(--border); border-radius: 12px; padding: 22px; }
+.interview-score > strong { font-size: 24px; color: var(--primary); }
+.ai-interviews blockquote { border-left: 3px solid var(--primary); margin: 14px 0; padding: 8px 14px; background: var(--surface); font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+.ai-interviews blockquote small { display: block; color: var(--muted); margin-top: 6px; }
+.interview-notices { margin: 16px 0; color: var(--muted); }
+.interview-comparison { width: 100%; text-align: left; border-collapse: collapse; margin: 18px 0; }
+.interview-comparison caption { text-align: left; color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+.interview-comparison th, .interview-comparison td { padding: 12px; border-bottom: 1px solid var(--border); }
+@media(max-width:900px) { .interview-form-row,.interview-score-grid { grid-template-columns: 1fr; } .interview-turn { max-width: 100%; } }

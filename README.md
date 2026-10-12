@@ -25,7 +25,7 @@ The build creates `dist/` and `dist-electron/`. `npm start` opens the production
 
 - Dashboard with recent sessions, actions, progress, and recommendations.
 - Guided learning sessions with offline practice or live OpenAI responses, stored transcripts, structured summaries, highlights, and saved resource notes.
-- Configurable three-question practice interviews with stored answers, optional structured AI feedback, and reviewable history.
+- Adaptive AI interviews with Realtime voice or text, role/language/job context, evidence-backed rubric scores, saved recovery, and performance comparisons; three-question offline practice remains available.
 - Study plans, task creation, deadlines, completion filters, and computed progress.
 - Filterable opportunities, details, bookmarks, search, and empty states.
 - Locally saved preferences, collapsible navigation, light/dark themes, and Ctrl/Cmd+K workspace search.
@@ -79,3 +79,19 @@ Search recorded sessions by title, topic, goals, transcript text, or summary; gu
 Tests cover lifecycle transitions, consent and ownership, audio ordering, duplicate/out-of-order transcription events, partial transcript recovery, safe key redaction, restart persistence, literal search, strict summary extraction/evidence, and PCM encoding. Native Electron tests load the AudioWorklet under CSP, verify unauthorized microphone denial and consented synthetic PCM capture with a mocked transport, confirm pause stops audio packets, and exercise notes/pause/resume/search across restart. Tests do not record real devices or make billed API calls. Live microphone/system capture still needs verification on your hardware with your own key and consent.
 
 Protocol references: [OpenAI Realtime transcription](https://developers.openai.com/api/docs/guides/realtime-transcription) and [Electron display capture](https://www.electronjs.org/docs/latest/api/session#sessetdisplaymediarequesthandlerhandler-opts).
+
+## AI mock interviews
+
+Open **Mock Interviews → AI interview** after saving an API key and choosing an OpenAI configuration in Settings. Configure any job role/career field, experience, technical/behavioral/general interview, 5–60 minute duration, optional job description, language, and text or voice mode. The Quick practice tab retains the three-question flow, with offline reflection in Offline practice configuration and optional AI feedback in an OpenAI configuration.
+
+Text interviews use schema-validated Responses requests with the finalized saved conversation for adaptive questions and follow-ups. Answers are saved before requesting the next question, so failures cannot discard submitted content. Voice interviews use an official SDK Realtime WebSocket in Electron main, PCM16 mono 24 kHz microphone input, ephemeral PCM playback, and durable candidate/interviewer transcripts. The voice is AI-generated. Consent and trusted-frame microphone permission are required. Headphones are recommended. Turn taking mutes outgoing microphone audio while interviewer audio plays; listen to the full question before answering.
+
+Pause stops capture/playback, attempts to drain the final audio turn for up to 1.2 seconds, and closes the socket. Resume explicitly in voice (renewing consent) or text. Only finalized text restores context; raw audio is never stored or replayed. App reload/exit and connection failures retain received answers and mark the interview interrupted. Partial transcripts stay visible and are excluded from evaluation. Active elapsed time is checkpointed while the view is open; downtime is excluded, and reaching the selected duration ends the interview. Limits are 200 turns/100,000 transcript characters. The history lists the latest 100 interviews.
+
+End an interview, then choose **Request interview feedback**. Rubric version 1 evaluates subject knowledge, communication clarity, reasoning/problem-solving, and answer completeness on a 0–5 scale, allowing unscored dimensions when evidence is insufficient. Every scored dimension and each strength/improvement must quote an exact substring of a finalized candidate answer. Invalid citations reject the assessment rather than displaying unsupported evidence. Recommendations describe practice topics; feedback must not predict hiring probability or infer personal/vocal traits.
+
+History stores configuration, transcript, state, active duration, interruption notices, evaluation timestamp, and structured assessment in migration 4. Compare assessed interviews with the same role, level, type, language, and rubric version. Differences in questions, duration, and mode may affect scores; comparisons are practice signals, not standardized tests or hiring predictions.
+
+Tests cover adaptive context, answer-before-request durability, lifecycle/concurrency, duration, strict SDK schemas, evidence, duplicate Realtime events, PCM bounds, encrypted key usage, restart recovery, native text/voice journeys, and comparisons. Automated voice tests use a synthetic device and mocked transport; live model access, voice quality, and physical hardware still need verification with your own key and consent. No automated test makes billed API calls.
+
+Protocol reference: [OpenAI Realtime conversations](https://developers.openai.com/api/docs/guides/realtime-conversations).
