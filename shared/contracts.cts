@@ -41,6 +41,7 @@ export type Usage = { id: string; operation: string; model: string; status: 'suc
 export type AIStatus = { keyConfigured: boolean; selected: Workspace['aiProfile']; profiles: { id: Workspace['aiProfile']; label: string; model: string | null }[]; realtimeModel: string; timeoutMs: number; maxRetries: number; usage: { requests: number; totalTokens: number } }
 export type Result<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string } }
 export interface CompanionBridge {
+  intelligence: import('./session-contracts.cjs').IntelligenceBridge
   getVersion(): Promise<string>
   workspace: { bootstrap(seed: Workspace): Promise<Result<Workspace>>; update(update: Update): Promise<Result<null>> }
   ai: {

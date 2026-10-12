@@ -23,3 +23,10 @@
 - Run `npm test` for unit tests and native Electron journeys, IPC validation, and persistence across process restart. `npm run test:unit` tests migrations/repositories, SDK retries/parsing/redaction, and Realtime ownership without network calls.
 - Use isolated Electron user-data directories and mocked OpenAI transports in tests. Never use real API keys or make billed API calls in automated tests.
 - Update README when commands or architecture change. Do not add real integrations without explicit scope.
+
+## Session intelligence
+- Recorded sessions have a separate main-owned lifecycle in `electron/ai/session-intelligence.cts`; do not write them through the renderer workspace snapshot. Use `IntelligenceRepository` and migration 3. Received transcript deltas are durable; raw audio is never persisted.
+- Require participant consent and trusted-frame permission checks before microphone capture. Windows system audio needs explicit native confirmation. Pause/navigation/reload/exit must release tracks and sockets. Resume never replays old audio.
+- Use bounded sequenced PCM16 mono 24 kHz IPC packets. Keep partial excerpts and interruption notices; exclude partial text from AI action evidence.
+- Validate structured summaries and live highlights against finalized transcript IDs and exact quoted substrings. Keep explicit assignments and AI-suggested activities distinguishable; do not automatically create planner tasks.
+- Test lifecycle, transcript recovery, audio format, consent/ownership, and evidence with mocked SDK sockets and isolated databases; never capture real microphones in automated tests.

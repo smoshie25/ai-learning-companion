@@ -15,7 +15,7 @@ test('an existing version-one database upgrades without losing learner data', ()
     db.exec(migrations[0]); db.prepare('INSERT INTO schema_migrations VALUES (?,?)').run(1, new Date().toISOString())
     db.prepare('INSERT INTO learner_profiles VALUES (?,?)').run('local', JSON.stringify(seed().preferences))
     migrate(db)
-    assert.equal(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 2)
+    assert.equal(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, migrations.length)
     assert.equal(JSON.parse(db.prepare("SELECT preferences FROM learner_profiles WHERE id='local'").get().preferences).name, 'Alex')
     assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='action_items_deadline'").get())
   } finally { db.close() }

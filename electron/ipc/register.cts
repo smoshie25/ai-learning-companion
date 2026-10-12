@@ -6,7 +6,9 @@ import type { AIService } from '../ai/service.cjs'
 import type { RealtimeService } from '../ai/realtime.cjs'
 import { AppError, safeError } from '../ai/errors.cjs'
 import { assertTrustedSender, validatePayload } from './validation.cjs'
-export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: string, repository: WorkspaceRepository, ai: AIService, realtime: RealtimeService) {
+import { startRecordingSchema, recordingRefSchema, resumeRecordingSchema, audioChunkSchema, noteSchema, pinSchema, searchRecordingsSchema } from '../../shared/session-contracts.cjs'
+import type { SessionIntelligence } from '../ai/session-intelligence.cjs'
+export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: string, repository: WorkspaceRepository, ai: AIService, realtime: RealtimeService, intelligence: SessionIntelligence) {
   const busy = new Set<number>(); const requests = new Map<number, number[]>()
   const sender = (event: IpcMainInvokeEvent) => {
     const window = getWindow(); const frame = event.senderFrame
@@ -41,5 +43,18 @@ export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: 
   handle('ai:realtime-connect', realtimeConnectSchema, (input, owner) => realtime.connect(owner, input.topic), true)
   handle('ai:realtime-send', realtimeSendSchema, (input, owner) => realtime.send(owner, input.connectionId, input.text), true)
   handle('ai:realtime-close', realtimeCloseSchema, (input, owner) => realtime.close(owner, input.connectionId))
-  return (owner: number) => { realtime.closeOwner(owner); requests.delete(owner); busy.delete(owner) }
+  handle('intelligence:capabilities', none, () => ({ systemAudio: process.platform === 'win32' }))
+  handle('intelligence:start', startRecordingSchema, (input, owner) => intelligence.start(owner, input))
+  handle('intelligence:get', recordingRefSchema, input => intelligence.repository.get(input.id))
+  handle('intelligence:search', searchRecordingsSchema, input => intelligence.repository.search(input.query))
+  handle('intelligence:connect', recordingRefSchema, (input, owner) => intelligence.connect(owner, input.id), true)
+  handle('intelligence:audio', audioChunkSchema, (input, owner) => intelligence.audio(owner, input.id, input.sequence, input.pcm))
+  handle('intelligence:pause', recordingRefSchema, (input, owner) => intelligence.pause(owner, input.id))
+  handle('intelligence:resume', resumeRecordingSchema, (input, owner) => intelligence.resume(owner, input.id, input.consent))
+  handle('intelligence:end', recordingRefSchema, (input, owner) => intelligence.end(owner, input.id))
+  handle('intelligence:interrupt', recordingRefSchema, (input, owner) => intelligence.interrupt(owner, input.id))
+  handle('intelligence:note', noteSchema, (input, owner) => intelligence.note(owner, input.id, input.text))
+  handle('intelligence:pin', pinSchema, input => intelligence.pin(input.id, input.segmentId, input.highlighted))
+  handle('intelligence:summarize', recordingRefSchema, input => intelligence.summarize(input.id), true)
+  return (owner: number) => { realtime.closeOwner(owner); intelligence.closeOwner(owner); requests.delete(owner); busy.delete(owner) }
 }

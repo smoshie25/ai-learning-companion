@@ -21,6 +21,17 @@ test.beforeAll(async () => {
 })
 test.afterAll(async () => { await app?.close() })
 
+test('recording worklet loads in the sandbox and microphone access is denied without recording consent', async () => {
+  const result = await page.evaluate(async () => {
+    let denied = false
+    try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); stream.getTracks().forEach(track => track.stop()) } catch { denied = true }
+    const context = new AudioContext({ sampleRate: 24000 })
+    try { await context.audioWorklet.addModule(new URL('audio-capture.js', document.baseURI).href); const node = new AudioWorkletNode(context, 'companion-pcm'); node.disconnect(); return { denied, rate: context.sampleRate } }
+    finally { await context.close() }
+  })
+  expect(result).toEqual({ denied: true, rate: 24000 })
+})
+
 test('secure Electron window and complete learning journeys', async () => {
   await expect(page.getByRole('heading', { name: /Good morning/ })).toBeVisible()
   await page.keyboard.press('Tab')
@@ -128,7 +139,7 @@ test('SQLite survives process restart and IPC rejects invalid payloads safely', 
   const badTutor = await page.evaluate(() => window.companion!.ai.tutor({ topic: 'React', mode: 'Guided learning', messages: [{ role: 'system', text: 'Bad input' }] } as never))
   expect(badTutor).toMatchObject({ ok: false, error: { code: 'VALIDATION' } })
   const keys = await page.evaluate(() => Object.keys(window.companion!))
-  expect(keys).toEqual(['getVersion', 'workspace', 'ai'])
+  expect(keys.sort()).toEqual(['ai', 'getVersion', 'intelligence', 'workspace'])
   await page.getByRole('button', { name: 'Learning Sessions', exact: true }).click()
   await expect(page.getByText('Understanding TypeScript generics · Takeaways', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Learning Planner', exact: true }).click()
@@ -175,5 +186,55 @@ test('active learning and interview drafts resume after a restart', async () => 
   await expect(page.getByText('Remember this conversation across restarts.', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Mock Interviews', exact: true }).click()
   await expect(page.getByLabel('Your answer')).toHaveValue('My answer is still in progress.')
+  expect(errors).toEqual([])
+})
+
+ test('session intelligence notes journey, navigation pause, evidence pins, and searchable restart history', async () => {
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  await page.getByLabel('Application configuration').selectOption('offline')
+  await page.getByRole('button', { name: 'Learning Sessions', exact: true }).click()
+  await page.getByRole('button', { name: 'Record & reflect', exact: true }).click()
+  await page.getByLabel('Session title', { exact: true }).fill('Evidence workshop')
+  await page.getByLabel('Learning topic', { exact: true }).fill('React hooks')
+  await page.getByLabel('Learning goals (optional)', { exact: true }).fill('Understand dependency arrays')
+  await page.getByRole('button', { name: 'Start learning session', exact: true }).click()
+  await expect(page.getByText('Notes session active · no audio capture')).toBeVisible()
+  await page.getByLabel('Session note', { exact: true }).fill('Please write a custom hook. Why does the dependency array matter?')
+  await page.getByRole('button', { name: 'Save note', exact: true }).click()
+  await page.getByRole('button', { name: 'Mark highlight', exact: true }).click()
+  await expect(page.getByText('You marked', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Pause session', exact: true }).click()
+  await expect(page.getByText('Paused · audio is off')).toBeVisible()
+  await expect(page.getByLabel('Session note', { exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Resume session', exact: true }).click()
+  await page.getByLabel('Session note', { exact: true }).fill('A closure preserves values from a render.')
+  await page.getByRole('button', { name: 'Save note', exact: true }).click()
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click()
+  await page.getByRole('button', { name: 'Learning Sessions', exact: true }).click()
+  await expect(page.getByText('Paused · audio is off')).toBeVisible()
+  await page.getByRole('button', { name: 'End session', exact: true }).click()
+  await expect(page.getByText('Session ended · saved locally')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Generate summary', exact: true })).toBeDisabled()
+  await screenshot('session-intelligence-ended')
+  const bad = await page.evaluate(() => window.companion!.intelligence.start({ title: 'Bad', topic: 'React', goals: '', source: 'microphone', consent: false }))
+  expect(bad).toMatchObject({ ok: false, error: { code: 'VALIDATION' } })
+  await app.close()
+  app = await electron.launch({ args: [path.resolve('.'), '--user-data-dir=' + profileDirectory], env: launchEnv })
+  page = await app.firstWindow(); page.on('pageerror', error => errors.push(error.message))
+  await page.getByRole('button', { name: 'Learning Sessions', exact: true }).click()
+  await page.getByRole('button', { name: 'Record & reflect', exact: true }).click()
+  await page.getByLabel('Search recorded sessions', { exact: true }).fill('dependency array')
+  await page.getByRole('button', { name: 'Review transcript & summary', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Evidence workshop', exact: true })).toBeVisible()
+  await expect(page.getByText('You marked', { exact: true })).toBeVisible()
+  await expect(page.getByText('A closure preserves values from a render.', { exact: true })).toBeVisible()
+  for (const width of [800, 390]) {
+    await page.setViewportSize({ width, height: 900 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+  }
+  await page.setViewportSize({ width: 1440, height: 960 })
+  await page.getByRole('button', { name: 'Session history', exact: true }).click()
+  await page.getByLabel('Search recorded sessions', { exact: true }).fill('nonexistent phrase')
+  await expect(page.getByRole('heading', { name: 'No matching sessions', exact: true })).toBeVisible()
   expect(errors).toEqual([])
 })
