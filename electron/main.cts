@@ -1,4 +1,4 @@
-import { app, BrowserWindow, session, dialog, desktopCapturer } from 'electron'
+import { app, BrowserWindow, session, dialog, desktopCapturer, safeStorage } from 'electron'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { openDatabase } from './persistence/database.cjs'
@@ -9,6 +9,7 @@ import { RealtimeService } from './ai/realtime.cjs'
 import { registerIPC } from './ipc/register.cjs'
 import { IntelligenceRepository } from './persistence/session-repository.cjs'
 import { SessionIntelligence } from './ai/session-intelligence.cjs'
+import { CredentialStore } from './ai/credentials.cjs'
 const development = !app.isPackaged && process.argv.includes('--dev')
 const projectRoot = path.join(__dirname, '../..')
 const rendererURL = development ? 'http://127.0.0.1:5173/' : pathToFileURL(path.join(projectRoot, 'dist/index.html')).href
@@ -26,11 +27,17 @@ function createWindow() {
   window.on('closed', () => { closeOwner?.(owner); window = null })
   void window.loadURL(rendererURL)
 }
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   try {
     const db = openDatabase(path.join(app.getPath('userData'), 'companion.sqlite'))
     const repository = new WorkspaceRepository(db)
-    const ai = new AIService(loadAIConfig(projectRoot, development), repository)
+    const credentials = new CredentialStore(path.join(app.getPath('userData'), 'openai-key.enc'), {
+      available: async () => await safeStorage.isAsyncEncryptionAvailable() && (process.platform !== 'linux' || !['basic_text', 'unknown'].includes(safeStorage.getSelectedStorageBackend())),
+      encrypt: key => safeStorage.encryptStringAsync(key), decrypt: bytes => safeStorage.decryptStringAsync(bytes),
+    })
+    await credentials.load()
+    const config = loadAIConfig(projectRoot, development); config.apiKey = credentials.getKey()
+    const ai = new AIService(config, repository, undefined, credentials)
     const realtime = new RealtimeService(ai, repository.usage)
     const intelligence = new SessionIntelligence(new IntelligenceRepository(db), ai, repository.usage)
     closeOwner = registerIPC(() => window, rendererURL, repository, ai, realtime, intelligence)

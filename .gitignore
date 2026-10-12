@@ -10,3 +10,5 @@ config/*.env
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
+*.enc
+*.enc.*.tmp

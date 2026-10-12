@@ -34,9 +34,11 @@ Offline practice uses scripted responses. Live AI uses the official OpenAI JavaS
 
 ## Configure OpenAI locally
 
-Copy `config/development.env.example` to `config/development.env`, set `OPENAI_API_KEY`, and run `npm run dev`. This ignored file is read only by the main process in development mode; Vite does not load it. Environment variables take precedence over file values. Restart Electron after changing configuration. Production `npm start` reads the same variables from the process environment and does not read development files.
+Open **Settings → OpenAI configuration**, enter your API key, and click **Save API key**. Select an application configuration and validate connectivity. Changes take effect immediately. Replace a key or remove it with confirmation; pause recording and disconnect Realtime before changing credentials.
 
-The model IDs for everyday learning, focused reasoning, and Realtime are configurable, as are request timeout and maximum SDK retries. Model access depends on your API account. No key is accepted through the UI, IPC, preload, or SQLite. Do not put credentials in `VITE_` variables, source code, logs, or a distributed application package.
+Electron encrypts the key using operating system credential protection and saves ciphertext as `openai-key.enc` under the application user-data directory. The password field clears after submission. Saved keys are never returned to the renderer or stored in SQLite, localStorage, logs, or application bundles. Secure storage must be available; plaintext fallback is disabled. API keys in environment variables and development configuration are ignored.
+
+Optional model IDs, request timeout, and maximum SDK retries can be configured in `config/development.env` for development (copy the example), or main-process environment variables. Restart Electron after changing these overrides. Model access depends on your API account.
 
 In Settings, select **Offline practice**, **Everyday learning**, or **Focused reasoning**. Connectivity validation retrieves the configured model without generating a response; actual generation compatibility is verified on use. Realtime has a separate connect/send/disconnect text interface backed by a main-process WebSocket, with one socket per window and a one-minute idle timeout. This Settings tool is text-only. The Learning Sessions recording module captures microphone audio for transcription without playing generated audio.
 

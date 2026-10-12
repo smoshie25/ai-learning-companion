@@ -11,14 +11,17 @@ import { parseText, parseStructured } from './parsing.cjs'
 import type { WorkspaceRepository } from '../persistence/repositories.cjs'
 import { intelligenceSummarySchema, liveInsightsSchema, type RecordingSnapshot } from '../../shared/session-contracts.cjs'
 import { validateSessionSummary, validateLiveInsights } from './session-extraction.cjs'
+import type { CredentialStore } from './credentials.cjs'
 
 export type ResponseClient = Pick<OpenAI, 'responses' | 'models' | 'apiKey' | 'baseURL'>
 export class AIService {
   private client?: ResponseClient
-  constructor(readonly config: AIConfig, private repository: WorkspaceRepository, private factory: () => ResponseClient = () => new OpenAI({ apiKey: config.apiKey, baseURL: 'https://api.openai.com/v1', maxRetries: config.maxRetries, timeout: config.timeoutMs, logLevel: 'off' })) {}
-  getClient() { if (!this.config.apiKey) throw new AppError('NOT_CONFIGURED', 'Set OPENAI_API_KEY in the local environment and restart the app.'); return this.client ??= this.factory() }
+  constructor(readonly config: AIConfig, private repository: WorkspaceRepository, private factory: () => ResponseClient = () => new OpenAI({ apiKey: config.apiKey, baseURL: 'https://api.openai.com/v1', maxRetries: config.maxRetries, timeout: config.timeoutMs, logLevel: 'off' }), private credentials?: CredentialStore) {}
+  getClient() { if (!this.config.apiKey) throw new AppError('NOT_CONFIGURED', 'Enter and save your OpenAI API key in Settings.'); return this.client ??= this.factory() }
+  async saveKey(key: string) { if (!this.credentials) throw new AppError('UNAVAILABLE', 'Secure credential storage is unavailable.'); await this.credentials.set(key); this.config.apiKey = this.credentials.getKey(); this.client = undefined; return this.status() }
+  async removeKey() { if (!this.credentials) throw new AppError('UNAVAILABLE', 'Secure credential storage is unavailable.'); await this.credentials.remove(); this.config.apiKey = ''; this.client = undefined; return this.status() }
   learningLanguage() { return { English: 'en', French: 'fr', Spanish: 'es' }[this.repository.load().preferences.language] }
-  status(): AIStatus { return { keyConfigured: !!this.config.apiKey, selected: this.repository.preference('aiProfile'), profiles: publicProfiles(this.config), realtimeModel: this.config.realtimeModel, timeoutMs: this.config.timeoutMs, maxRetries: this.config.maxRetries, usage: this.repository.usage.totals() } }
+  status(): AIStatus { return { keyConfigured: !!this.config.apiKey, ...(this.credentials?.status() ?? { keyStorageAvailable: false, keySaved: false, keyWarning: null }), selected: this.repository.preference('aiProfile'), profiles: publicProfiles(this.config), realtimeModel: this.config.realtimeModel, timeoutMs: this.config.timeoutMs, maxRetries: this.config.maxRetries, usage: this.repository.usage.totals() } }
   private model() { const selected = this.repository.preference('aiProfile'); if (selected === 'offline') throw new AppError('OFFLINE_MODE', 'Select an OpenAI configuration in Settings to use live AI.'); return selected === 'focused' ? this.config.focusedModel : this.config.responseModel }
   private redact(text: string) { return this.config.apiKey ? text.split(this.config.apiKey).join('[redacted]') : text }
   async validate() {

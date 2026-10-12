@@ -1,6 +1,8 @@
 import { z } from 'zod'
 
 const text = (max = 500) => z.string().min(1).max(max)
+export const apiKeySchema = z.string().trim().min(20).max(1000).regex(/^sk-[A-Za-z0-9_-]+$/)
+export const saveKeySchema = z.object({ key: apiKeySchema }).strict()
 export const idSchema = z.string().min(1).max(100).regex(/^[\w-]+$/)
 export const messageSchema = z.object({ role: z.enum(['assistant', 'user']), text: text(12000) }).strict()
 export const messagesSchema = z.array(messageSchema).max(80).refine(items => items.reduce((n, m) => n + m.text.length, 0) <= 100000)
@@ -38,13 +40,15 @@ export type InterviewInput = z.infer<typeof interviewRequestSchema>
 export type Feedback = z.infer<typeof feedbackSchema>
 export type Summary = z.infer<typeof summarySchema>
 export type Usage = { id: string; operation: string; model: string; status: 'success' | 'error'; inputTokens: number; outputTokens: number; totalTokens: number; latencyMs: number; errorCode: string | null; createdAt: string }
-export type AIStatus = { keyConfigured: boolean; selected: Workspace['aiProfile']; profiles: { id: Workspace['aiProfile']; label: string; model: string | null }[]; realtimeModel: string; timeoutMs: number; maxRetries: number; usage: { requests: number; totalTokens: number } }
+export type AIStatus = { keyConfigured: boolean; keyStorageAvailable: boolean; keySaved: boolean; keyWarning: string | null; selected: Workspace['aiProfile']; profiles: { id: Workspace['aiProfile']; label: string; model: string | null }[]; realtimeModel: string; timeoutMs: number; maxRetries: number; usage: { requests: number; totalTokens: number } }
 export type Result<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string } }
 export interface CompanionBridge {
   intelligence: import('./session-contracts.cjs').IntelligenceBridge
   getVersion(): Promise<string>
   workspace: { bootstrap(seed: Workspace): Promise<Result<Workspace>>; update(update: Update): Promise<Result<null>> }
   ai: {
+    saveKey(input: { key: string }): Promise<Result<AIStatus>>
+    removeKey(): Promise<Result<AIStatus>>
     status(): Promise<Result<AIStatus>>
     validate(): Promise<Result<{ message: string }>>
     tutor(input: TutorInput): Promise<Result<{ text: string }>>

@@ -1,6 +1,6 @@
 import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { z } from 'zod'
-import { workspaceSchema, updateSchema, tutorSchema, interviewRequestSchema, realtimeConnectSchema, realtimeSendSchema, realtimeCloseSchema, type Update, type Result } from '../../shared/contracts.cjs'
+import { workspaceSchema, updateSchema, tutorSchema, interviewRequestSchema, realtimeConnectSchema, realtimeSendSchema, realtimeCloseSchema, saveKeySchema, type Update, type Result } from '../../shared/contracts.cjs'
 import type { WorkspaceRepository } from '../persistence/repositories.cjs'
 import type { AIService } from '../ai/service.cjs'
 import type { RealtimeService } from '../ai/realtime.cjs'
@@ -36,6 +36,9 @@ export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: 
   handle('workspace:bootstrap', workspaceSchema, input => repository.bootstrap(input))
   handle('workspace:update', updateSchema, input => { repository.update(input as Update); return null })
   handle('ai:status', none, () => ai.status())
+  const changeCredential = async (work: () => Promise<import('../../shared/contracts.cjs').AIStatus>) => { if (realtime.hasConnections() || intelligence.hasAIWork()) throw new AppError('BUSY', 'Pause recording and disconnect Realtime before changing your API key.'); return work() }
+  handle('ai:save-key', saveKeySchema, input => changeCredential(() => ai.saveKey(input.key)), true)
+  handle('ai:remove-key', none, () => changeCredential(() => ai.removeKey()), true)
   handle('ai:validate', none, () => ai.validate(), true)
   handle('ai:tutor', tutorSchema, input => ai.tutor(input), true)
   handle('ai:summarize', tutorSchema, input => ai.summarize(input), true)

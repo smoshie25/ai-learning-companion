@@ -8,6 +8,7 @@ type Connection = { owner: number; socket: OpenAIRealtimeWS; busy: boolean; topi
 export class RealtimeService {
   private connections = new Map<string, Connection>()
   private disposed = false
+  hasConnections() { return this.connections.size > 0 }
   constructor(private ai: AIService, private usage: UsageRepository, private factory = () => new OpenAIRealtimeWS({ model: ai.config.realtimeModel, options: { handshakeTimeout: ai.config.timeoutMs, maxPayload: 1024 * 1024 } }, ai.getClient() as Pick<import('openai').OpenAI, 'apiKey' | 'baseURL'>)) {}
   async connect(owner: number, topic: string) {
     if (this.ai.status().selected === 'offline') throw new AppError('OFFLINE_MODE', 'Select an OpenAI configuration before connecting to Realtime.')

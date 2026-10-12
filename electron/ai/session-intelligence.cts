@@ -13,6 +13,7 @@ export class SessionIntelligence {
   private extracting = new Set<string>()
   private lastInsight = new Map<string, number>()
   private disposed = false
+  hasAIWork() { return this.runs.size > 0 || this.extracting.size > 0 || this.controls.size > 0 }
   constructor(readonly repository: IntelligenceRepository, private ai: AIService, private usage: UsageRepository, private factory = () => new OpenAIRealtimeWS({ intent: 'transcription', options: { handshakeTimeout: ai.config.timeoutMs, maxPayload: 1024 * 1024 } }, ai.getClient())) { repository.recover() }
   private owned(owner: number, id: string) { if (this.owners.get(id) !== owner) throw new AppError('FORBIDDEN', 'Resume this learning session before changing it.'); return this.repository.get(id) }
   private noOther(owner: number, id?: string) { for (const [other, current] of this.owners) if (current === owner && other !== id && this.repository.get(other).state !== 'ended') throw new AppError('BUSY', 'End the current learning session before starting another.') }

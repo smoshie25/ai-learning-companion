@@ -12,12 +12,13 @@ const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = require('node:fs')
 const { tmpdir } = require('node:os')
 const path = require('node:path')
 
-test('development environment file stays main-only and process configuration overrides it', () => {
+test('development environment overrides models but never loads API keys', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'alc-env-'))
   try {
     mkdirSync(path.join(root, 'config'))
     writeFileSync(path.join(root, 'config', 'development.env'), `OPENAI_API_KEY=${config.apiKey}\nOPENAI_RESPONSE_MODEL=gpt-4.1-mini\nOPENAI_MAX_RETRIES=1\n`)
-    assert.equal(loadAIConfig(root, true, {}).apiKey, config.apiKey)
+    assert.equal(loadAIConfig(root, true, {}).apiKey, '')
+    assert.equal(loadAIConfig(root, true, {}).responseModel, 'gpt-4.1-mini')
     assert.equal(loadAIConfig(root, true, { OPENAI_MAX_RETRIES: '0' }).maxRetries, 0)
     assert.equal(loadAIConfig(root, false, {}).apiKey, '')
     assert.throws(() => loadAIConfig(root, true, { OPENAI_RESPONSE_MODEL: config.apiKey }), error => !error.message.includes(config.apiKey))
@@ -71,6 +72,22 @@ test('even a provider response containing the key is redacted', async () => {
 })
 test('configuration ignores arbitrary environment fields and returns no public key', () => {
   const parsed = loadAIConfig('.', false, { OPENAI_API_KEY: config.apiKey, OPENAI_TIMEOUT_MS: '1500', VITE_SECRET: 'private' })
-  assert.equal(parsed.timeoutMs, 1500); assert.equal(parsed.apiKey, config.apiKey); assert.equal(parsed.VITE_SECRET, undefined)
+  assert.equal(parsed.timeoutMs, 1500); assert.equal(parsed.apiKey, ''); assert.equal(parsed.VITE_SECRET, undefined)
   assert.throws(() => loadAIConfig('.', false, { OPENAI_TIMEOUT_MS: 'bad', OPENAI_API_KEY: config.apiKey }), error => !error.message.includes(config.apiKey))
+})
+
+test('changing Settings credentials immediately resets the SDK client and removal disables AI', async () => {
+ const db = openDatabase(':memory:'); const repository = new WorkspaceRepository(db); repository.bootstrap(seed()); repository.update({field:'aiProfile',value:'standard'})
+ let current = ''; let created = 0
+ const vault = { getKey:()=>current, status:()=>({keyStorageAvailable:true,keySaved:!!current,keyWarning:null}), set:async key=>{current=key},remove:async()=>{current=''} }
+ const local = {...config,apiKey:''}
+ const ai = new AIService(local, repository,()=>{ created++; const used = local.apiKey; return {responses:{create:async()=>response(used)}} },vault)
+ const input = {topic:'React',mode:'Guided learning',messages:[]}
+ try {
+ await ai.saveKey('sk-test-first-settings-key'); assert.equal((await ai.tutor(input)).text,'[redacted]')
+ await ai.saveKey('sk-test-second-settings-key'); assert.equal((await ai.tutor(input)).text,'[redacted]'); assert.equal(created,2)
+ assert.equal(JSON.stringify(ai.status()).includes(current),false)
+ await ai.removeKey(); assert.equal(ai.status().keyConfigured,false)
+ await assert.rejects(ai.tutor(input),{code:'NOT_CONFIGURED'})
+ } finally {db.close()}
 })
