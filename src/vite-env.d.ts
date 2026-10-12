@@ -1,2 +1,3 @@
 /// <reference types="vite/client" />
-interface Window { companion?: { getVersion: () => Promise<string> } }
+import type { CompanionBridge } from '../shared/contracts.cjs'
+declare global { interface Window { companion?: CompanionBridge } }

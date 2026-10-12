@@ -6,3 +6,7 @@ playwright-report/
 *.log
 .env*
 !.env.example
+config/*.env
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm

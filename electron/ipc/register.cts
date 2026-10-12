@@ -1,0 +1,45 @@
+import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
+import { z } from 'zod'
+import { workspaceSchema, updateSchema, tutorSchema, interviewRequestSchema, realtimeConnectSchema, realtimeSendSchema, realtimeCloseSchema, type Update, type Result } from '../../shared/contracts.cjs'
+import type { WorkspaceRepository } from '../persistence/repositories.cjs'
+import type { AIService } from '../ai/service.cjs'
+import type { RealtimeService } from '../ai/realtime.cjs'
+import { AppError, safeError } from '../ai/errors.cjs'
+import { assertTrustedSender, validatePayload } from './validation.cjs'
+export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: string, repository: WorkspaceRepository, ai: AIService, realtime: RealtimeService) {
+  const busy = new Set<number>(); const requests = new Map<number, number[]>()
+  const sender = (event: IpcMainInvokeEvent) => {
+    const window = getWindow(); const frame = event.senderFrame
+    if (!window || !frame) throw new AppError('FORBIDDEN', 'Application window unavailable.')
+    assertTrustedSender({ id: event.sender.id, frameId: frame.routingId, mainFrameId: event.sender.mainFrame.routingId, url: frame.url }, { id: window.webContents.id, url: expectedURL })
+  }
+  function handle<T, R>(channel: string, schema: z.ZodType<T>, work: (input: T, owner: number) => R | Promise<R>, paid = false) {
+    ipcMain.handle(channel, async (event, payload): Promise<Result<R>> => {
+      let reserved = false
+      try {
+        sender(event); const input = validatePayload(schema, payload)
+        if (paid) {
+          const recent = (requests.get(event.sender.id) ?? []).filter(time => Date.now() - time < 60000)
+          if (busy.has(event.sender.id)) throw new AppError('BUSY', 'Wait for the current AI operation to finish.')
+          if (recent.length >= 12) throw new AppError('RATE_LIMIT', 'Please wait a moment before sending more AI requests.')
+          requests.set(event.sender.id, [...recent, Date.now()]); busy.add(event.sender.id); reserved = true
+        }
+        return { ok: true, data: await work(input, event.sender.id) }
+      } catch (error) { const safe = error instanceof AppError ? error : safeError(error); return { ok: false, error: { code: safe.code, message: safe.message } } }
+      finally { if (reserved) busy.delete(event.sender.id) }
+    })
+  }
+  const none = z.null()
+  ipcMain.handle('app:version', event => { sender(event); return '0.1.0' })
+  handle('workspace:bootstrap', workspaceSchema, input => repository.bootstrap(input))
+  handle('workspace:update', updateSchema, input => { repository.update(input as Update); return null })
+  handle('ai:status', none, () => ai.status())
+  handle('ai:validate', none, () => ai.validate(), true)
+  handle('ai:tutor', tutorSchema, input => ai.tutor(input), true)
+  handle('ai:summarize', tutorSchema, input => ai.summarize(input), true)
+  handle('ai:interview', interviewRequestSchema, input => ai.interview(input), true)
+  handle('ai:realtime-connect', realtimeConnectSchema, (input, owner) => realtime.connect(owner, input.topic), true)
+  handle('ai:realtime-send', realtimeSendSchema, (input, owner) => realtime.send(owner, input.connectionId, input.text), true)
+  handle('ai:realtime-close', realtimeCloseSchema, (input, owner) => realtime.close(owner, input.connectionId))
+  return (owner: number) => { realtime.closeOwner(owner); requests.delete(owner); busy.delete(owner) }
+}
