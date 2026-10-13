@@ -38,3 +38,5 @@ Deleting a local document removes its extracted text, analysis, Q&A and progress
 References: [PDF.js](https://github.com/mozilla/pdf.js), [fflate](https://github.com/101arrowz/fflate), [fast-xml-parser](https://github.com/NaturalIntelligence/fast-xml-parser), and [OpenAI structured Responses outputs](https://developers.openai.com/api/docs/guides/structured-outputs).
 
 PDF citations tolerate whitespace-only layout differences, then save the exact original source span. Changed words, punctuation, case, and invented or cross-section excerpts remain rejected. Failed-section reasons appear in the overview.
+
+Document Responses now use a main-generated excerpt catalog: the provider returns enum-constrained citation IDs, and main resolves them to exact original chunk IDs and source text. This applies to section analysis, hierarchical synthesis, Q&A, plans, and interview question banks. Unknown IDs or provider-supplied quotations are rejected. Existing stored analyses and references remain readable; failed sections can be retried without reimport. Source presence still requires learners to check whether an interpretation is justified.
