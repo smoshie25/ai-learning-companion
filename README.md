@@ -116,6 +116,16 @@ Official reference: [OpenAI web search and source citations](https://developers.
 
 ## MCP Action Execution
 
-An official-SDK local stdio server exposes learning tools, proposals, approved action execution, real-source opportunity search, and watch-preference registration. Open **Action Center** to review exact proposals; configure Google Desktop OAuth in Settings for Calendar/Gmail. Tokens use OS encryption, approvals bind payload revisions and connections, and atomic idempotency records prevent duplicate execution. Email drafts are local; uncertain Gmail sends are never automatically retried.
+An official-SDK local stdio server exposes learning tools, proposals, approved action execution, evidence-checked opportunity search, and approved watch registration. Open **Action Center** to review exact proposals; configure Google Desktop OAuth in Settings for Calendar/Gmail. Tokens use OS encryption, approvals bind payload revisions and connections, and atomic idempotency records prevent duplicate execution. Email drafts are local; uncertain Gmail sends are never automatically retried.
 
 See [MCP setup, tools, authorization, and execution examples](docs/MCP.md). No remote backend or unrelated microservice is added.
+
+## MVP Skills, monitoring and demo
+
+Three reusable Codex Skills live in `skills/`: learning-session-followup, learning-opportunity-discovery and learning-progress-review. They discover Companion MCP tools, preserve evidence and approval boundaries, and support independent invocation. See [guided demo and Skill test prompts](docs/DEMO.md).
+
+Run `npm run demo:scheduled` for a reproducible ten-step proof with synthetic AI/search/Google responses, isolated SQLite data and scheduler ticks. No credentials, network or external changes are used. Run `npm run test:skills` for independent MCP contract checks; these do not assess Codex model reasoning.
+
+`npm run monitor:once -- --user-data-dir="ABSOLUTE_PROFILE"` runs the live one-shot worker against enabled approved watches. It checks due queries, retrieves bounded source text, preserves exact term excerpts, detects changes, deduplicates alerts, creates notification email proposals and sends only reviewed approved emails through Gmail. Action Center shows actual outcomes and can disable watches. **Nothing monitors in the background unless this worker is running or your own scheduler launches it.** See [monitoring operations and hosted-scheduler limits](docs/MONITORING.md).
+
+Migration 7 persists evidence-checked opportunity results, watch leases/due times, alerts and safe run outcomes. Unknown cost/eligibility/deadlines stay unverified; exact quotes validate provenance, not guaranteed AI interpretation. Live provider access, hardware and actual offer terms still need user verification. Every email requires individual review; the MVP has no blanket recurring-send approval. Hosted execution requires the same-user persistent runner and secure storage, not an ephemeral container.

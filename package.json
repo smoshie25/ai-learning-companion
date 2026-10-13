@@ -12,7 +12,10 @@
     "preview": "vite preview --host 127.0.0.1",
     "test": "npm run test:unit && playwright test",
     "test:unit": "tsc -p tsconfig.electron.json && node --test unit/*.test.cjs",
-    "mcp": "node scripts/mcp-launcher.cjs"
+    "mcp": "node scripts/mcp-launcher.cjs",
+    "monitor:once": "node scripts/monitor-launcher.cjs",
+    "demo:scheduled": "tsc -p tsconfig.electron.json && node scripts/scheduled-demo.cjs",
+    "test:skills": "tsc -p tsconfig.electron.json && node --test unit/skills.test.cjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",

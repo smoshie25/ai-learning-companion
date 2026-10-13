@@ -54,5 +54,12 @@
 - `electron/integrations/` owns Google adapters and encrypted OAuth vaults. Use system-browser Desktop OAuth, loopback-only callback, PKCE S256, state verification, timeout/cancel, minimal scopes, and verified Gmail sender identity. Never expose refresh/access tokens or client secrets to renderer/MCP/logs/SQLite/bundles.
 - Calendar restricts to owned primary events, no invitees, deterministic IDs/digest markers, and idempotent reconciliation. Gmail drafts are local; send uses gmail.send plus OpenID/email identity, with no inbox reads, remote drafts, contacts, or attachments.
 - Never automatically retry Gmail sends. Ambiguous failures or interrupted claims stay uncertain and block resend. Atomic SQLite claims prevent concurrent execution; successful retries return the previous outcome. Record safe failures/outcomes with revision/digest in migration 6.
-- Opportunity watches register preferences only; do not imply background polling. Real source search remains explicit and demo opportunities labelled. No unrelated provider or microservice work.
+- Approved opportunity watches are checked only by explicit CLI worker/scheduler invocations; never imply background polling when no worker runs. Real source search remains explicit and demo opportunities labelled. No unrelated provider or microservice work.
 - Use mocked Google/OAuth transports and isolated profiles for integration tests; verify official SDK discovery/invocation and real stdio client operation. Never send actual emails or mutate real calendars in tests.
+
+## MVP Skills and monitoring
+- Version reusable Skills in `skills/<name>/SKILL.md`; use discovered narrow MCP tools, preserve transcript-sharing consent and desktop-only approvals. Model-driven validation is distinct from mocked MCP contract tests.
+- Headless `--monitor` uses the same local initialized profile and encrypted credential stores, never recording/interview recovery services. One-shot worker checks approved enabled watches with leases/due times in migration 7; no automatic scheduler installation.
+- Retrieve bounded public HTTPS text with validated DNS pinning on every redirect. Structured opportunity facts need exact retrieved quotes; absent facts remain unknown. Excerpts prove provenance, not semantic correctness.
+- Generated alert emails are proposals requiring exact review. The worker can send only approved current revisions/grants and cannot retry failed/uncertain delivery automatically. Watch disable stops future checks/sends. Persist stable alert identities and safe outcomes across restart.
+- Deterministic demo uses synthetic provider/AI/search responses, isolated local data and simulated review/clock ticks. Never present it as live provider or background monitoring verification.

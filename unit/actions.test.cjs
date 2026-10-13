@@ -96,7 +96,7 @@ test('local tasks and watch registrations execute only after approval and surviv
  let a=x.engine.propose(proposal({kind:'learning_task',data:{title:'Practice SQL',subject:'SQL',deadline:null,durationMinutes:20,priority:'Medium'}}))
  await x.engine.approve(a.id,review(a));await x.engine.execute(a.id);await x.engine.execute(a.id);assert.equal(x.repo.tasks().length,1);x.repo.completeTask(a.id);assert.equal(x.repo.tasks()[0].done,true)
  a=x.engine.propose(proposal({kind:'opportunity_watch',data:{query:'Free data courses',categories:['Data'],intervalHours:24,freeOnly:true}}))
- await x.engine.approve(a.id,review(a));await x.engine.execute(a.id);assert.equal(x.repo.watches().length,1);assert.ok(x.repo.get(a.id).outcome.message.includes('not enabled'))
+ await x.engine.approve(a.id,review(a));await x.engine.execute(a.id);assert.equal(x.repo.watches().length,1);assert.ok(x.repo.get(a.id).outcome.message.includes('only when the CLI worker'))
  }finally{x.db.close()}
 })
 function encryption(){const key=randomBytes(32);return {available:async()=>true,encrypt:async text=>{const iv=randomBytes(12);const cipher=createCipheriv('aes-256-gcm',key,iv);return Buffer.concat([iv,cipher.update(text),cipher.final(),cipher.getAuthTag()])},decrypt:async data=>{const cipher=createDecipheriv('aes-256-gcm',key,data.subarray(0,12));cipher.setAuthTag(data.subarray(-16));return {result:Buffer.concat([cipher.update(data.subarray(12,-16)),cipher.final()]).toString()}}}}

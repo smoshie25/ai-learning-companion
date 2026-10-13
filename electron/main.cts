@@ -1,4 +1,6 @@
 import { createConnection } from 'node:net'
+import { OpportunityDiscovery } from './monitoring/discovery.cjs'
+import { OpportunityWorker } from './monitoring/worker.cjs'
 import { createActionRuntime } from './actions/runtime.cjs'
 import { createLearningMCP } from './mcp/server.cjs'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
@@ -19,7 +21,8 @@ import { IntelligenceRepository } from './persistence/session-repository.cjs'
 import { SessionIntelligence } from './ai/session-intelligence.cjs'
 import { CredentialStore } from './ai/credentials.cjs'
 const mcpMode = process.argv.includes('--mcp')
-if(mcpMode) app.disableHardwareAcceleration()
+const monitorMode = process.argv.includes('--monitor')
+if(mcpMode || monitorMode) app.disableHardwareAcceleration()
 const development = !app.isPackaged && process.argv.includes('--dev')
 const projectRoot = path.join(__dirname, '../..')
 const rendererURL = development ? 'http://127.0.0.1:5173/' : pathToFileURL(path.join(projectRoot, 'dist/index.html')).href
@@ -50,12 +53,19 @@ app.whenReady().then(async () => {
     await credentials.load()
     const config = loadAIConfig(projectRoot, development); config.apiKey = credentials.getKey()
     const ai = new AIService(config, repository, undefined, credentials)
+    const discovery = new OpportunityDiscovery(ai)
+    if(monitorMode){
+      if(!repository.isInitialized()){process.stdout.write(JSON.stringify({error:'PROFILE_NOT_INITIALIZED'})+'\n');db.close();app.exit(1);return}
+      closeServices=()=>db.close()
+      const worker=new OpportunityWorker(actions.monitoring,actions.engine,query=>discovery.search(query))
+      const result=await worker.run();db.close();closeServices=undefined;process.stdout.write(JSON.stringify(result)+'\n',()=>app.exit(result.outcomes.some(o=>o.state==='failed'||o.state==='uncertain')?1:0));return
+    }
     if(mcpMode) {
       process.stderr.write('Companion MCP profile initialized.\n')
       if(!repository.isInitialized()) { process.stderr.write('Open the desktop app once with this profile before starting its MCP server.\n'); db.close(); app.exit(1); return }
       const recordings = new IntelligenceRepository(db); const interviewData = new InterviewRepository(db); const library = new LearningRepository(db)
       const learning = new LearningService(library, repository, recordings, interviewData, ai)
-      const server = createLearningMCP(actions.engine, repository, recordings, interviewData, library, query => learning.discover({goal:'Free courses, scholarships, certifications, and learning opportunities: '+query,gapIds:[],textOnly:true}))
+      const server = createLearningMCP(actions.engine, repository, recordings, interviewData, library, query => learning.discover({goal:'Free courses, scholarships, certifications, and learning opportunities: '+query,gapIds:[],textOnly:true}),{learning,monitoring:actions.monitoring,opportunitySearch:query=>discovery.search(query)})
       const pipe = app.commandLine.getSwitchValue('mcp-transport'); const nonce = process.env.COMPANION_MCP_NONCE; delete process.env.COMPANION_MCP_NONCE
       if(!pipe || !nonce || !/^[a-f0-9]{64}$/.test(nonce)) throw new Error('Use the direct MCP launcher.')
       const stream = createConnection({path:pipe})
@@ -91,7 +101,7 @@ app.whenReady().then(async () => {
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [development ? "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://127.0.0.1:5173; img-src 'self' data:; frame-src 'none'; object-src 'none'; base-uri 'none'" : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'none'; img-src 'self' data:; frame-src 'none'; object-src 'none'; base-uri 'none'"] } }))
     createWindow()
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
-  } catch { if(mcpMode) { process.stderr.write('The Companion MCP runtime could not initialize its local profile or secure storage.\n'); app.exit(1); return } dialog.showErrorBox('Companion could not start', 'Local data or AI configuration could not be initialized. Check the configuration and database permissions.'); app.quit() }
+  } catch { if(mcpMode || monitorMode) { process.stderr.write('The Companion headless runtime could not initialize its local profile or secure storage.\n'); app.exit(1); return } dialog.showErrorBox('Companion could not start', 'Local data or AI configuration could not be initialized. Check the configuration and database permissions.'); app.quit() }
 })
 app.on('before-quit', () => { closeServices?.(); closeServices = undefined })
-app.on('window-all-closed', () => { if (!mcpMode && process.platform !== 'darwin') app.quit() })
+app.on('window-all-closed', () => { if (!mcpMode && !monitorMode && process.platform !== 'darwin') app.quit() })

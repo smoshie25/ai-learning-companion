@@ -19,7 +19,7 @@ export class ActionEngine {
    if(action.action.kind==='email')result=await this.gmail.execute(action)
    else if(action.action.kind==='calendar_event'||action.action.kind==='calendar_reminder')result=await this.calendar.execute(action)
    else if(action.action.kind==='learning_task')result={providerId:this.repository.createTask(action),message:'Approved learning task created locally.'}
-   else result={providerId:this.repository.registerWatch(action),message:'Opportunity monitoring preference registered locally. Background polling is not enabled.'}
+   else result={providerId:this.repository.registerWatch(action),message:'Opportunity watch registered locally. Checks run only when the CLI worker or a configured scheduler runs; notification emails require separate review.'}
    return this.repository.finish(id,'succeeded',result.message,result.providerId)
   }catch(error){const known=error instanceof AppError;const uncertain=error instanceof ProviderError?error.uncertain:!known;return this.repository.finish(id,uncertain?'uncertain':'failed',known?error.message:'Execution was interrupted. The provider result is uncertain; check it before attempting another action.',null,known?error.code:'EXECUTION_UNCERTAIN')}
  }

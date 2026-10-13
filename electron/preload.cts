@@ -3,6 +3,7 @@ import type { CompanionBridge } from '../shared/contracts.cjs'
 // Type imports are erased: the sandboxed preload requires only Electron.
 const bridge: CompanionBridge = {
   actions: {
+    monitoring: () => ipcRenderer.invoke('actions:monitoring',null), disableWatch: input => ipcRenderer.invoke('actions:disable-watch',input),
     list: () => ipcRenderer.invoke('actions:list',null), propose: input => ipcRenderer.invoke('actions:propose',input), edit: input => ipcRenderer.invoke('actions:edit',input), approve: input => ipcRenderer.invoke('actions:approve',input), reject: input => ipcRenderer.invoke('actions:reject',input), execute: input => ipcRenderer.invoke('actions:execute',input), completeTask: input => ipcRenderer.invoke('actions:complete-task',input),
     cancelGoogleConnect: () => ipcRenderer.invoke('google:cancel-connect',null),
     integrations: () => ipcRenderer.invoke('google:status',null), saveGoogleClient: input => ipcRenderer.invoke('google:save-client',input), connectGoogle: input => ipcRenderer.invoke('google:connect',input), disconnectGoogle: input => ipcRenderer.invoke('google:disconnect',input),

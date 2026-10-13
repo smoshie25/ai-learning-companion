@@ -75,12 +75,16 @@ Tool errors have `isError: true` and safe codes/messages. SDK schemas reject une
 | `learning.actions.execute` | Execute an unchanged desktop-approved action by ID |
 | `learning.progress.get` | Separate legacy, personalized-plan, and MCP-task completion/practice data |
 | `opportunities.search` | Saved real source links; `online: true` invokes existing configured OpenAI web search; demo catalog requires `includeIllustrative: true` |
-| `opportunities.watch` | Propose monitoring preferences for review and local registration |
+| `opportunities.watch` | Propose query/categories/interval/freeOnly and optional notificationTo for review |
+| `opportunities.monitoring.get` | Read actual watch runs, alert states and worker limitations |
+| `learning.context.get` | Read goals, inferred gaps, approved resources, plans and unfinished commitments |
+| `learning.resources.discover` | Search cited resources and save local proposals |
+| `learning.plans.propose` | Generate a structured plan proposal for desktop review |
 | `calendar.study.propose` | Propose a primary-calendar study event |
 | `calendar.reminder.propose` | Propose a study event with a popup reminder |
 | `gmail.followup.draft` | Save a local email draft for review; does not create a remote Gmail draft |
 
-Online opportunity search returns sourced educational links, not verified enrollment/price offers. Watch registration stores query/categories/free preference and requested interval; background polling/notifications are not scheduled in this phase. No calendar invitation, inbox read, attachment, contact synchronization, or unrelated integration is implemented.
+Online opportunity search now retrieves bounded source text and extracts evidence-checked cost/eligibility/deadline quotes or explicit unknown fields. It does not guarantee offer interpretation, current enrollment or admission. Watch registration stores query/categories/free preference, interval and optional notification destination. The one-shot worker checks due approved watches and proposes alerts; approved exact emails can be sent on a later worker run. No background scheduler is installed. See [worker operations](MONITORING.md) and [Skills/demo](DEMO.md). No calendar invitation, inbox read, attachment, contact synchronization, or unrelated integration is implemented.
 
 ## Google authorization
 

@@ -1,0 +1,7 @@
+const {mkdtempSync,writeFileSync}=require('node:fs')
+const {tmpdir}=require('node:os')
+const path=require('node:path')
+const {runScenario}=require('../demo/scenario.cjs')
+const directory=mkdtempSync(path.join(tmpdir(),'companion-mvp-demo-'))
+process.stdout.write('Deterministic MVP demo: synthetic AI/search/Google responses; no credentials or network. Scheduler ticks advance a test clock.\n')
+runScenario(path.join(directory,'companion.sqlite'),s=>process.stdout.write(`${s.step}. ${s.label}\n`)).then(result=>{writeFileSync(path.join(directory,'report.json'),JSON.stringify(result,null,2));process.stdout.write(`Demo evidence saved to ${directory}\nNo background worker is running after this command exits.\n`)}).catch(()=>{process.stderr.write('Demo failed. Run npm test for diagnostics.\n');process.exitCode=1})

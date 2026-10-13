@@ -6,7 +6,7 @@ const header=text(150).refine(v=>!/[\r\n\0]/.test(v))
 export const timezoneSchema=text(80).refine(v=>{try{return (v==='UTC'||/^[A-Za-z_]+\/[A-Za-z0-9_+\-/]+$/.test(v))&&!!new Intl.DateTimeFormat('en',{timeZone:v})}catch{return false}},'Use an IANA time zone.')
 export const calendarActionSchema=z.object({title:header,description:z.string().max(5000),start:z.string().datetime({offset:true}),end:z.string().datetime({offset:true}),timeZone:timezoneSchema,reminderMinutes:z.number().int().min(0).max(10080)}).strict()
 export const emailActionSchema=z.object({to:z.array(z.string().email().max(254).regex(/^[\x21-\x7E]+$/)).min(1).max(5).refine(v=>new Set(v.map(s=>s.toLowerCase())).size===v.length),subject:header,body:text(20000).refine(v=>!v.includes('\0'))}).strict()
-export const watchPayloadSchema=z.object({query:text(300),categories:z.array(text(80)).max(8),intervalHours:z.number().int().min(6).max(168),freeOnly:z.boolean()}).strict()
+export const watchPayloadSchema=z.object({query:text(300),categories:z.array(text(80)).max(8),intervalHours:z.number().int().min(6).max(168),freeOnly:z.boolean(),notificationTo:z.string().email().max(254).regex(/^[\x21-\x7E]+$/).optional()}).strict()
 export const learningTaskPayloadSchema=z.object({title:text(150),subject:text(100),deadline:dateSchema.nullable(),durationMinutes:z.number().int().min(5).max(180),priority:z.enum(['Low','Medium','High'])}).strict()
 export const actionPayloadSchema=z.discriminatedUnion('kind',[
  z.object({kind:z.literal('calendar_event'),data:calendarActionSchema}).strict(),
@@ -42,6 +42,8 @@ export type GoogleToken=z.infer<typeof googleTokenSchema>
 export type ActionProposal=z.infer<typeof proposeActionSchema>
 export type IntegrationStatus={clientConfigured:boolean;secureStorage:boolean;calendarConnected:boolean;gmailConnected:boolean;gmailAccount:string|null;calendarGrantId:string|null;gmailGrantId:string|null;calendarScope:string;gmailScope:string}
 export interface ActionsBridge {
+ monitoring():Promise<Result<import('./monitoring-contracts.cjs').MonitoringSnapshot>>
+ disableWatch(input:{id:string}):Promise<Result<null>>
  list():Promise<Result<ActionView[]>>
  propose(input:ActionProposal):Promise<Result<ActionRecord>>
  edit(input:{id:string;action:ActionPayload;rationale:string}):Promise<Result<ActionRecord>>
