@@ -1,7 +1,19 @@
 import type { DocumentChunk,DocumentEvidence,DocumentAnalysis,GroundedPoint,DocumentAnswer } from '../../shared/document-contracts.cjs'
 import { documentAnalysisSchema,documentAnswerSchema,synthesisSchema } from '../../shared/document-contracts.cjs'
 import { AppError } from '../ai/errors.cjs'
-export function validateEvidence(refs:DocumentEvidence[],chunks:DocumentChunk[],allowed?:Set<string>){for(const ref of refs){const c=chunks.find(c=>c.id===ref.chunkId);if(!c||!c.text.includes(ref.quote)||allowed&&!allowed.has(ref.chunkId+'\0'+ref.quote))throw new AppError('INVALID_EVIDENCE','AI output cited text absent from the supplied source. It was not saved.')}}
+// Resolve only whitespace differences from PDF layout. Persist the original source span.
+function sourceQuote(text:string,quote:string):string|null {
+ if(text.includes(quote))return quote
+ const words=quote.trim().split(/\s+/u)
+ if(!words.length||!words[0])return null
+ const pattern=words.map(word=>word.replace(/[.*+?^${}()|[\]\\]/g,char=>'\\'+char)).join('\\s+')
+ const match=new RegExp(pattern,'u').exec(text)
+ return match&&match[0].length<=400?match[0]:null
+}
+export function validateEvidence(refs:DocumentEvidence[],chunks:DocumentChunk[],allowed?:Set<string>){
+ const resolved=refs.map(ref=>{const c=chunks.find(c=>c.id===ref.chunkId),quote=c?sourceQuote(c.text,ref.quote):null;if(!quote||allowed&&!allowed.has(ref.chunkId+'\0'+quote))throw new AppError('INVALID_EVIDENCE','AI output cited text absent from the supplied source. It was not saved.');return quote})
+ refs.forEach((ref,i)=>{ref.quote=resolved[i]})
+}
 export function evidenceFrom(value:unknown):DocumentEvidence[]{const refs:DocumentEvidence[]=[];function walk(v:any){if(!v||typeof v!=='object')return;if(Array.isArray(v)){v.forEach(walk);return}for(const [key,item] of Object.entries(v))if(key==='evidence'&&Array.isArray(item))refs.push(...item as DocumentEvidence[]);else walk(item)}walk(value);return refs}
 export function validateAnalysis(value:unknown,chunks:DocumentChunk[]):DocumentAnalysis{const parsed=documentAnalysisSchema.parse(value);validateEvidence(evidenceFrom(parsed),chunks);return parsed}
 export function validateSynthesis(value:unknown,chunks:DocumentChunk[],inputs:GroundedPoint[]){const parsed=synthesisSchema.parse(value);validateEvidence(evidenceFrom(parsed),chunks,new Set(evidenceFrom(inputs).map(e=>e.chunkId+'\0'+e.quote)));return parsed.points}
