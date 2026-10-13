@@ -43,6 +43,7 @@ export type Usage = { id: string; operation: string; model: string; status: 'suc
 export type AIStatus = { keyConfigured: boolean; keyStorageAvailable: boolean; keySaved: boolean; keyWarning: string | null; selected: Workspace['aiProfile']; profiles: { id: Workspace['aiProfile']; label: string; model: string | null }[]; realtimeModel: string; timeoutMs: number; maxRetries: number; usage: { requests: number; totalTokens: number } }
 export type Result<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string } }
 export interface CompanionBridge {
+  documents: import('./document-contracts.cjs').DocumentsBridge
   actions: import('./action-contracts.cjs').ActionsBridge
   learning: import('./learning-contracts.cjs').LearningBridge
   interviews: import('./interview-contracts.cjs').InterviewBridge

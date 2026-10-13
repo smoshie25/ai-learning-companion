@@ -1,4 +1,4 @@
-export type Page = 'Dashboard' | 'Learning Sessions' | 'Mock Interviews' | 'Learning Planner' | 'Learning Resources' | 'Action Center' | 'Opportunities' | 'Settings'
+export type Page = 'Dashboard' | 'Learning Sessions' | 'Mock Interviews' | 'Learning Planner' | 'Learning Resources' | 'Study Documents' | 'Action Center' | 'Opportunities' | 'Settings'
 export type Session = { id: string; title: string; category: string; duration: string; date: string; summary: string; highlights: string[]; transcript?: { role: 'assistant' | 'user'; text: string }[] }
 export type Task = { id: string; title: string; subject: string; date: string; done: boolean }
 export const initialSessions: Session[] = [

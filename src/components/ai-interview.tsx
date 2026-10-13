@@ -5,12 +5,13 @@ import { Badge, SectionHeading, EmptyState, PageHeader } from './shared'
 import { rubric, type InterviewConfig, type InterviewSession } from '../../shared/interview-contracts.cts'
 import type { Result } from '../../shared/contracts.cts'
 import { captureSessionAudio, type AudioCapture } from '@/lib/audio-capture'
+import { EvidenceLinks } from './document-evidence'
 import { InterviewAudioPlayer } from '@/lib/interview-audio'
 import { usePersistence } from '@/lib/workspace'
 
 const initial: InterviewConfig = {role:'Frontend Developer',experience:'Entry-level',type:'Technical',durationMinutes:15,jobDescription:'',language:'English',mode:'text',consent:false}
 const metric=(s:InterviewSession,id:typeof rubric[number]['id'])=>s.assessment?.[id].score
-export function AIInterviewView() {
+export function AIInterviewView({initialInterviewId,onOpened}:{initialInterviewId?:string|null;onOpened?:()=>void}={}) {
  const {flush}=usePersistence()
  const [config,setConfig]=useState(initial)
  const [session,setSession]=useState<InterviewSession|null>(null)
@@ -62,6 +63,7 @@ export function AIInterviewView() {
   return()=>{stopped=true;clearInterval(timer)}
  },[session?.id,session?.state,session?.config.mode])
  useEffect(()=>{if(follow.current&&transcript.current)transcript.current.scrollTop=transcript.current.scrollHeight},[session?.turns])
+ useEffect(()=>{if(!initialInterviewId)return;let active=true;void window.companion!.interviews.get({id:initialInterviewId}).then(r=>{if(active){update(unwrap(r));onOpened?.()}}).catch(e=>{if(active)setError(e.message)});return()=>{active=false}},[initialInterviewId])
  const elapsed=session?session.elapsedMs+(session.activeSince?Math.max(0,now-Date.parse(session.activeSince)):0):0
  const remaining=session?Math.max(0,session.config.durationMinutes*60-Math.floor(elapsed/1000)):0
  const comparable=history.filter(s=>s.id!==session?.id&&s.assessment&&s.config.role.toLowerCase()===session?.config.role.toLowerCase()&&s.config.experience===session?.config.experience&&s.config.type===session?.config.type&&s.config.language===session?.config.language&&s.assessment.rubricVersion===session?.assessment?.rubricVersion)
@@ -85,6 +87,7 @@ export function AIInterviewView() {
  <Button className="full-width" disabled={busy||!window.companion||(config.mode==='voice'&&!config.consent)}>{busy?'Preparing…':'Start AI interview'}<ArrowRight size={16}/></Button></form>
  </section><aside className="interview-aside"><div className="quote-card"><span className="eyebrow">THINK OUT LOUD</span><h2>Your reasoning is part of your answer.</h2><div className="quote-art"><Trophy size={65}/></div></div><section className="card tips-card"><h3>A consistent practice rubric</h3>{rubric.map(r=><div key={r.id}><strong>{r.label}</strong><p>{r.description}</p></div>)}<p>Scores use a 0–5 scale. Missing evidence stays unscored. Feedback assesses this practice, without predicting hiring outcomes.</p></section></aside></div>:<section className="card interview-active">
  <div className="section-heading"><div><Badge tone="green">{session.config.role} · {session.config.type}</Badge><p className="form-note left">{session.config.experience} · {session.config.language} · {session.config.mode==='voice'?'Voice':'Text'} · {session.state==='ended'?Math.floor(elapsed/60000)+' min active':Math.floor(remaining/60)+':'+String(remaining%60).padStart(2,'0')+' remaining'}</p></div><Button variant="ghost" disabled={busy} onClick={()=>void operation(async()=>{await stop();if(session.state==='active')update(unwrap(await window.companion!.interviews.pause({id:session.id})));latest.current=null;setSession(null)})}>Back to interviews</Button></div>
+ {session.studyContext&&<details><summary>Study material: {session.studyContext.title}</summary><p>Interview questions are based on locally saved document excerpts. Candidate feedback still uses your answers as evidence.</p>{session.studyContext.questions.flatMap(q=>q.evidence).map((e,i)=><EvidenceLinks key={i} documentId={session.studyContext!.documentId} evidence={[e]}/>)}</details>}
  <div className="interview-controls">
  <Badge tone={session.state==='active'?'green':'orange'}>{session.state==='active'&&session.config.mode==='voice'?(connected?(speaking?'Interviewer speaking · microphone muted':'Listening · audio sent to OpenAI'):'Connecting · microphone authorized'):session.state==='active'?'Interview in progress':session.state==='ended'?'Interview ended · saved locally':session.state+' · microphone off'}</Badge>
  {session.state==='active'&&<Button size="sm" variant="outline" disabled={busy} onClick={()=>void operation(async()=>{await stop();update(unwrap(await window.companion!.interviews.pause({id:session.id})))})}><Pause size={15}/>Pause interview</Button>}

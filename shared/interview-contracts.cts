@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { documentInterviewContextSchema } from './document-evidence.cjs'
 import type { Result } from './contracts.cjs'
 const text = (n: number) => z.string().trim().min(1).max(n)
 export const interviewConfigSchema = z.object({
@@ -22,6 +23,7 @@ export const assessmentSchema = z.object({
 export const questionSchema = z.object({ question: text(2000) }).strict()
 export const interviewTurnSchema = z.object({ id: z.uuid(), itemId: text(200), role: z.enum(['user','assistant']), text: z.string().max(12000), status: z.enum(['partial','final']), at: z.string().datetime() }).strict()
 export const interviewSessionSchema = z.object({
+ studyContext:documentInterviewContextSchema.optional(),
  id: z.uuid(), config: interviewConfigSchema, state: z.enum(['active','paused','interrupted','ended']),
  startedAt: z.string().datetime(), activeSince: z.string().datetime().nullable(), endedAt: z.string().datetime().nullable(),
  elapsedMs: z.number().int().min(0), turns: z.array(interviewTurnSchema).max(200), notices: z.array(text(500)).max(30),

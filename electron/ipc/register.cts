@@ -4,7 +4,9 @@ import { discoveryInputSchema,planInputSchema,learningRefSchema,resourceApproveS
 import type { LearningService } from '../ai/learning-service.cjs'
 import { interviewConfigSchema, interviewRefSchema, interviewAnswerSchema, interviewResumeSchema, interviewPollSchema } from '../../shared/interview-contracts.cjs'
 import type { InterviewService } from '../ai/interview-service.cjs'
-import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
+import { ipcMain, dialog, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
+import { documentRefSchema,documentSourceSchema,documentAnalyzeSchema,documentAskSchema,documentStudySchema,documentInterviewSchema,documentProgressSchema } from '../../shared/document-contracts.cjs'
+import type { DocumentService } from '../documents/service.cjs'
 import { z } from 'zod'
 import { workspaceSchema, updateSchema, tutorSchema, interviewRequestSchema, realtimeConnectSchema, realtimeSendSchema, realtimeCloseSchema, saveKeySchema, type Update, type Result } from '../../shared/contracts.cjs'
 import type { WorkspaceRepository } from '../persistence/repositories.cjs'
@@ -14,7 +16,7 @@ import { AppError, safeError } from '../ai/errors.cjs'
 import { assertTrustedSender, validatePayload } from './validation.cjs'
 import { startRecordingSchema, recordingRefSchema, resumeRecordingSchema, audioChunkSchema, noteSchema, pinSchema, searchRecordingsSchema } from '../../shared/session-contracts.cjs'
 import type { SessionIntelligence } from '../ai/session-intelligence.cjs'
-export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: string, repository: WorkspaceRepository, ai: AIService, realtime: RealtimeService, intelligence: SessionIntelligence, interviews: InterviewService, learning: LearningService, actions: ReturnType<typeof createActionRuntime>) {
+export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: string, repository: WorkspaceRepository, ai: AIService, realtime: RealtimeService, intelligence: SessionIntelligence, interviews: InterviewService, learning: LearningService, actions: ReturnType<typeof createActionRuntime>, documents:DocumentService) {
   const busy = new Set<number>(); const requests = new Map<number, number[]>()
   const sender = (event: IpcMainInvokeEvent) => {
     const window = getWindow(); const frame = event.senderFrame
@@ -38,11 +40,22 @@ export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: 
     })
   }
   const none = z.null()
+  handle('documents:import',none,async()=>{const target=getWindow();if(!target)throw new AppError('FORBIDDEN','The application window is unavailable.');const selected=await dialog.showOpenDialog(target,{title:'Import study material locally',properties:['openFile'],filters:[{name:'Study documents',extensions:['pdf','docx','txt','md']}]});if(selected.canceled)return null;if(getWindow()!==target||target.isDestroyed())throw new AppError('FORBIDDEN','The import window closed.');return documents.importFile(selected.filePaths[0])})
+  handle('documents:list',none,()=>documents.repository.list())
+  handle('documents:get',documentRefSchema,input=>documents.repository.snapshot(input.id))
+  handle('documents:source',documentSourceSchema,input=>documents.repository.chunk(input.id,input.chunkId))
+  handle('documents:analyze',documentAnalyzeSchema,input=>documents.analyze(input),true)
+  handle('documents:cancel',documentRefSchema,input=>{documents.cancel(input.id);return null})
+  handle('documents:ask',documentAskSchema,input=>documents.ask(input),true)
+  handle('documents:study',documentStudySchema,input=>documents.study(input),true)
+  handle('documents:interview',documentInterviewSchema,(input,owner)=>documents.interview(owner,input),true)
+  handle('documents:progress',documentProgressSchema,input=>{documents.progress(input.id,input.chunkId,input.completed,input.reviewedCards);return null})
+  handle('documents:remove',documentRefSchema,input=>{documents.remove(input.id);return null})
   ipcMain.handle('app:version', event => { sender(event); return '0.1.0' })
   handle('workspace:bootstrap', workspaceSchema, input => repository.bootstrap(input))
   handle('workspace:update', updateSchema, input => { repository.update(input as Update); return null })
   handle('ai:status', none, () => ai.status())
-  const changeCredential = async (work: () => Promise<import('../../shared/contracts.cjs').AIStatus>) => { if (realtime.hasConnections() || intelligence.hasAIWork() || interviews.hasAIWork()) throw new AppError('BUSY', 'Pause recording or voice interviews and disconnect Realtime before changing your API key.'); return work() }
+  const changeCredential = async (work: () => Promise<import('../../shared/contracts.cjs').AIStatus>) => { if (realtime.hasConnections() || intelligence.hasAIWork() || interviews.hasAIWork() || documents.hasAIWork()) throw new AppError('BUSY', 'Pause recording or voice interviews and disconnect Realtime before changing your API key.'); return work() }
   handle('ai:save-key', saveKeySchema, input => changeCredential(() => ai.saveKey(input.key)), true)
   handle('ai:remove-key', none, () => changeCredential(() => ai.removeKey()), true)
   handle('ai:validate', none, () => ai.validate(), true)
@@ -101,5 +114,5 @@ export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: 
   handle('intelligence:note', noteSchema, (input, owner) => intelligence.note(owner, input.id, input.text))
   handle('intelligence:pin', pinSchema, input => intelligence.pin(input.id, input.segmentId, input.highlighted))
   handle('intelligence:summarize', recordingRefSchema, input => intelligence.summarize(input.id), true)
-  return (owner: number) => { actions.oauth.cancelConnect(); realtime.closeOwner(owner); intelligence.closeOwner(owner); interviews.closeOwner(owner); requests.delete(owner); busy.delete(owner) }
+  return (owner: number) => { documents.cancelAll(); actions.oauth.cancelConnect(); realtime.closeOwner(owner); intelligence.closeOwner(owner); interviews.closeOwner(owner); requests.delete(owner); busy.delete(owner) }
 }

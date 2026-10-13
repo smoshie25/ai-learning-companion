@@ -27,11 +27,11 @@ export class InterviewService {
  private arm(id:string) {clearTimeout(this.deadlines.get(id));const s=this.repository.get(id);this.deadlines.set(id,setTimeout(()=>this.finish(id),Math.max(1,s.config.durationMinutes*60000-this.elapsed(s))))}
  private finish(id:string) {const s=this.repository.get(id);this.stopSocket(id);return this.repository.save({...s,state:'ended',elapsedMs:Math.min(this.elapsed(s),s.config.durationMinutes*60000),activeSince:null,endedAt:new Date().toISOString()})}
  private async exclusive<T>(id:string,work:()=>Promise<T>) {if(this.busy.has(id))throw new AppError('BUSY','Wait for this interview operation to finish.');this.busy.add(id);try{return await work()}finally{this.busy.delete(id)}}
- async start(owner:number,input:InterviewConfig) {
+ async start(owner:number,input:InterviewConfig,studyContext?:InterviewSession['studyContext']) {
   const config=interviewConfigSchema.parse(input);this.live()
   if([...this.owners].some(([id,o])=>o===owner&&this.repository.get(id).state==='active'))throw new AppError('BUSY','Pause or end your current interview first.')
   const now=new Date().toISOString();const id=randomUUID()
-  this.repository.save({id,config,state:'active',startedAt:now,activeSince:now,endedAt:null,elapsedMs:0,turns:[],notices:[],assessment:null,evaluatedAt:null});this.owners.set(id,owner)
+  this.repository.save({id,config,...(studyContext?{studyContext}:{}),state:'active',startedAt:now,activeSince:now,endedAt:null,elapsedMs:0,turns:[],notices:[],assessment:null,evaluatedAt:null});this.owners.set(id,owner)
   this.arm(id);if(config.mode==='text')await this.next(id)
   return this.repository.get(id)
  }

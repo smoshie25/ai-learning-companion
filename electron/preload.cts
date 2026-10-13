@@ -2,6 +2,10 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { CompanionBridge } from '../shared/contracts.cjs'
 // Type imports are erased: the sandboxed preload requires only Electron.
 const bridge: CompanionBridge = {
+  documents: {
+    import: () => ipcRenderer.invoke('documents:import',null), list: () => ipcRenderer.invoke('documents:list',null), get: input => ipcRenderer.invoke('documents:get',input), source: input => ipcRenderer.invoke('documents:source',input),
+    analyze: input => ipcRenderer.invoke('documents:analyze',input), cancel: input => ipcRenderer.invoke('documents:cancel',input), ask: input => ipcRenderer.invoke('documents:ask',input), study: input => ipcRenderer.invoke('documents:study',input), interview: input => ipcRenderer.invoke('documents:interview',input), progress: input => ipcRenderer.invoke('documents:progress',input), remove: input => ipcRenderer.invoke('documents:remove',input),
+  },
   actions: {
     monitoring: () => ipcRenderer.invoke('actions:monitoring',null), disableWatch: input => ipcRenderer.invoke('actions:disable-watch',input),
     list: () => ipcRenderer.invoke('actions:list',null), propose: input => ipcRenderer.invoke('actions:propose',input), edit: input => ipcRenderer.invoke('actions:edit',input), approve: input => ipcRenderer.invoke('actions:approve',input), reject: input => ipcRenderer.invoke('actions:reject',input), execute: input => ipcRenderer.invoke('actions:execute',input), completeTask: input => ipcRenderer.invoke('actions:complete-task',input),

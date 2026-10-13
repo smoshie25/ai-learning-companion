@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { documentStudySourcesSchema } from './document-evidence.cjs'
 import type { Result } from './contracts.cjs'
 const text=(max:number)=>z.string().trim().min(1).max(max)
 export const dateSchema=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v=>!Number.isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v)
@@ -22,6 +23,7 @@ export const planProposalSchema=z.object({title:text(150),rationale:text(2000),t
 export const attemptSchema=z.object({id:z.uuid(),at:z.string().datetime(),question:text(700),criteria:text(1000),revision:text(64),answer:text(6000),score:z.number().int().min(0).max(5),explanation:text(1200),excerpt:text(800)}).strict()
 export const studyTaskSchema=proposedTaskSchema.extend({id:z.uuid(),state:z.enum(['proposed','approved','rejected','completed']),completedAt:z.string().datetime().nullable(),attempts:z.array(attemptSchema).max(30)}).strict()
 export const studyPlanSchema=z.object({
+ documentSources:documentStudySourcesSchema.optional(),
  id:z.uuid(),goal:text(500),title:text(150),rationale:text(2000),gapIds:z.array(text(200)).max(12),gapContext:z.array(gapSchema).max(12),
  minutesPerDay:z.number().int().min(10).max(180),deadline:dateSchema.nullable(),textOnly:z.boolean(),
  state:z.enum(['proposed','approved','rejected']),createdAt:z.string().datetime(),approvedAt:z.string().datetime().nullable(),

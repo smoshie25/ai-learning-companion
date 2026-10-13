@@ -1,4 +1,6 @@
 import { createConnection } from 'node:net'
+import { DocumentService } from './documents/service.cjs'
+import { DocumentRepository } from './documents/repository.cjs'
 import { OpportunityDiscovery } from './monitoring/discovery.cjs'
 import { OpportunityWorker } from './monitoring/worker.cjs'
 import { createActionRuntime } from './actions/runtime.cjs'
@@ -83,8 +85,9 @@ app.whenReady().then(async () => {
     const intelligence = new SessionIntelligence(new IntelligenceRepository(db), ai, repository.usage)
     const interviews = new InterviewService(new InterviewRepository(db), ai, repository.usage)
     const learning = new LearningService(new LearningRepository(db), repository, intelligence.repository, interviews.repository, ai, undefined, url => shell.openExternal(url))
-    closeOwner = registerIPC(() => window, rendererURL, repository, ai, realtime, intelligence, interviews, learning, actions)
-    closeServices = () => { intelligence.closeAll(); interviews.closeAll(); realtime.closeAll(); db.close() }
+    const documents = new DocumentService(new DocumentRepository(db),ai,learning.repository,interviews)
+    closeOwner = registerIPC(() => window, rendererURL, repository, ai, realtime, intelligence, interviews, learning, actions, documents)
+    closeServices = () => { documents.close(); intelligence.closeAll(); interviews.closeAll(); realtime.closeAll(); db.close() }
     const trusted = (contents: Electron.WebContents | null) => !!contents && contents === window?.webContents && contents.mainFrame.url.split('#')[0] === rendererURL
     session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) => callback(trusted(contents) && permission === 'media' && details.isMainFrame && 'mediaTypes' in details && details.mediaTypes?.length === 1 && details.mediaTypes[0] === 'audio' && (intelligence.canCapture(contents.id) || interviews.canCapture(contents.id))))
     session.defaultSession.setPermissionCheckHandler((contents, permission, _origin, details) => trusted(contents) && details.isMainFrame && permission === 'media' && details.mediaType === 'audio' && (intelligence.canCapture(contents!.id) || interviews.canCapture(contents!.id)))

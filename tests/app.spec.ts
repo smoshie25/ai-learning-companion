@@ -139,7 +139,7 @@ test('SQLite survives process restart and IPC rejects invalid payloads safely', 
   const badTutor = await page.evaluate(() => window.companion!.ai.tutor({ topic: 'React', mode: 'Guided learning', messages: [{ role: 'system', text: 'Bad input' }] } as never))
   expect(badTutor).toMatchObject({ ok: false, error: { code: 'VALIDATION' } })
   const keys = await page.evaluate(() => Object.keys(window.companion!))
-  expect(keys.sort()).toEqual(['actions', 'ai', 'getVersion', 'intelligence', 'interviews', 'learning', 'workspace'])
+  expect(keys.sort()).toEqual(['actions', 'ai', 'documents', 'getVersion', 'intelligence', 'interviews', 'learning', 'workspace'])
   await page.getByRole('button', { name: 'Learning Sessions', exact: true }).click()
   await expect(page.getByText('Understanding TypeScript generics · Takeaways', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Learning Planner', exact: true }).click()
