@@ -15,7 +15,7 @@ import { SessionIntelligenceView } from '@/components/session-intelligence'
 import { LearningPreferences } from '@/components/learning-preferences'
 import type { Feedback, TutorInput } from '../shared/contracts.cts'
 
-const navigation: { page: Page; icon: LucideIcon }[] = [{ page: 'Dashboard', icon: LayoutDashboard }, { page: 'Learning Sessions', icon: AudioLines }, { page: 'Mock Interviews', icon: MessageSquare }, { page: 'Learning Planner', icon: CalendarDays }, { page: 'Learning Resources', icon: BookOpen }, { page: 'Study Documents', icon: FileText }, { page: 'Action Center', icon: CheckCircle2 }, { page: 'Opportunities', icon: Compass }]
+const navigation: { page: Page; icon: LucideIcon }[] = [{ page: 'Dashboard', icon: LayoutDashboard }, { page: 'Study Documents', icon: FileText }, { page: 'Learning Sessions', icon: AudioLines }, { page: 'Mock Interviews', icon: MessageSquare }, { page: 'Learning Planner', icon: CalendarDays }, { page: 'Learning Resources', icon: BookOpen }, { page: 'Action Center', icon: CheckCircle2 }, { page: 'Opportunities', icon: Compass }]
 type Message = { role: 'assistant' | 'user'; text: string }
 type Modal = 'session' | 'task' | 'plan' | 'search' | 'notifications' | null
 const uid = () => crypto.randomUUID()
