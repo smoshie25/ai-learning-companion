@@ -23,6 +23,7 @@ export const migrations = [
    CREATE INDEX intelligence_state ON intelligence_sessions(state, started_at);
    CREATE INDEX intelligence_segment_session ON intelligence_segments(session_id, position);`,
   `CREATE TABLE ai_interviews (id TEXT PRIMARY KEY, state TEXT NOT NULL, started_at TEXT NOT NULL, data TEXT NOT NULL CHECK(json_valid(data))); CREATE INDEX ai_interviews_state ON ai_interviews(state, started_at);`,
+  `CREATE TABLE discovered_resources (id TEXT PRIMARY KEY, canonical_url TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL, data TEXT NOT NULL CHECK(json_valid(data))); CREATE TABLE personalized_plans (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, data TEXT NOT NULL CHECK(json_valid(data))); CREATE TABLE learning_gap_analyses (id TEXT PRIMARY KEY, data TEXT NOT NULL CHECK(json_valid(data)));`,
 ]
 export function transaction<T>(db: DatabaseSync, work: () => T): T {
   db.exec('BEGIN IMMEDIATE')

@@ -2,6 +2,11 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { CompanionBridge } from '../shared/contracts.cjs'
 // Type imports are erased: the sandboxed preload requires only Electron.
 const bridge: CompanionBridge = {
+  learning: {
+    load: () => ipcRenderer.invoke('learning:load',null), analyzeGaps: () => ipcRenderer.invoke('learning:analyze-gaps',null), discover: input => ipcRenderer.invoke('learning:discover',input),
+    saveResource: input => ipcRenderer.invoke('learning:save-resource',input), verifyResource: input => ipcRenderer.invoke('learning:verify-resource',input), openResource: input => ipcRenderer.invoke('learning:open-resource',input),
+    propose: input => ipcRenderer.invoke('learning:propose',input), planAction: input => ipcRenderer.invoke('learning:plan-action',input), editTask: input => ipcRenderer.invoke('learning:edit-task',input), taskAction: input => ipcRenderer.invoke('learning:task-action',input), assess: input => ipcRenderer.invoke('learning:assess',input),
+  },
   interviews: {
     start: input => ipcRenderer.invoke('interviews:start', input), get: input => ipcRenderer.invoke('interviews:get', input), list: () => ipcRenderer.invoke('interviews:list', null),
     answer: input => ipcRenderer.invoke('interviews:answer', input), connect: input => ipcRenderer.invoke('interviews:connect', input), audio: input => ipcRenderer.invoke('interviews:audio', input), poll: input => ipcRenderer.invoke('interviews:poll', input),

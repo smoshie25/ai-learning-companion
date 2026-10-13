@@ -37,3 +37,12 @@
 - Rubric version 1 is defined in shared interview contracts. Scores require exact finalized candidate-answer evidence; insufficient evidence uses null. Never predict hiring probability or infer vocal/personal traits from transcripts.
 - Voice uses consented mono PCM24k input, ephemeral bounded output playback, explicit turn taking, and durable duplicate-safe transcripts. Stop devices/playback on pause, navigation, interruption, duration expiry, or exit. Resume restores finalized text only, never raw audio.
 - Compare only matching role, experience, type, language, and rubric versions; disclose question/duration/mode differences. Test lifecycle, schema/evidence rejection, concurrency, restart recovery, and mocked native voice paths without real API calls.
+
+## Resource discovery and planning
+- `LearningService`, `LearningRepository`, shared learning contracts, and migration 5 own discovery and personalized plans separately from legacy workspace snapshots.
+- Use real hosted web search. Accept URLs only from completed search citation annotations; never from generated prose or model-created course lists. Normalize/deduplicate without losing approval. Preserve source domains, gap provenance, and exact inferred-gap excerpts.
+- Verification uses bounded HTTPS HEAD requests, validated public IPv4 DNS addresses pinned to the request, and redirect validation at each hop. No arbitrary URL IPC, private-network requests, credentials, page downloads, or raw HTML rendering. Renderer source clicks pass resource IDs only.
+- Reachability is not proof of resource content, cost, certificate, access, or text-only suitability. Label AI difficulty/time/relevance estimates and unverified metadata explicitly. Prefer official documentation, educational institutions, and established free educators.
+- Plans and tasks start proposed; only explicit approval activates work. Validate unique stable task keys, acyclic prerequisites, approved source IDs, durations, and deadlines. Enforce task lifecycle and completion dependencies. Never generate URLs inside activities.
+- Preserve practice attempts when editing, including question/criteria/revision snapshots. Exact submitted-answer excerpts support scores; compare only matching revisions and avoid mastery claims. Detect concurrent task edits before attaching AI assessments.
+- Persist approvals, review decisions, and completion before reporting success. Saved text activities and metadata remain available offline. Search/AI are explicit online actions; no calendar/email execution.

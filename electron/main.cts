@@ -1,6 +1,8 @@
+import { LearningService } from './ai/learning-service.cjs'
+import { LearningRepository } from './persistence/learning-repository.cjs'
 import { InterviewRepository } from './persistence/interview-repository.cjs'
 import { InterviewService } from './ai/interview-service.cjs'
-import { app, BrowserWindow, session, dialog, desktopCapturer, safeStorage } from 'electron'
+import { app, BrowserWindow, session, dialog, desktopCapturer, safeStorage, shell } from 'electron'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { openDatabase } from './persistence/database.cjs'
@@ -43,7 +45,8 @@ app.whenReady().then(async () => {
     const realtime = new RealtimeService(ai, repository.usage)
     const intelligence = new SessionIntelligence(new IntelligenceRepository(db), ai, repository.usage)
     const interviews = new InterviewService(new InterviewRepository(db), ai, repository.usage)
-    closeOwner = registerIPC(() => window, rendererURL, repository, ai, realtime, intelligence, interviews)
+    const learning = new LearningService(new LearningRepository(db), repository, intelligence.repository, interviews.repository, ai, undefined, url => shell.openExternal(url))
+    closeOwner = registerIPC(() => window, rendererURL, repository, ai, realtime, intelligence, interviews, learning)
     closeServices = () => { intelligence.closeAll(); interviews.closeAll(); realtime.closeAll(); db.close() }
     const trusted = (contents: Electron.WebContents | null) => !!contents && contents === window?.webContents && contents.mainFrame.url.split('#')[0] === rendererURL
     session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) => callback(trusted(contents) && permission === 'media' && details.isMainFrame && 'mediaTypes' in details && details.mediaTypes?.length === 1 && details.mediaTypes[0] === 'audio' && (intelligence.canCapture(contents.id) || interviews.canCapture(contents.id))))

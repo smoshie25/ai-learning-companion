@@ -1,3 +1,5 @@
+import { discoveryInputSchema,planInputSchema,learningRefSchema,resourceApproveSchema,planActionSchema,taskEditSchema,taskActionSchema,taskAnswerSchema } from '../../shared/learning-contracts.cjs'
+import type { LearningService } from '../ai/learning-service.cjs'
 import { interviewConfigSchema, interviewRefSchema, interviewAnswerSchema, interviewResumeSchema, interviewPollSchema } from '../../shared/interview-contracts.cjs'
 import type { InterviewService } from '../ai/interview-service.cjs'
 import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
@@ -10,7 +12,7 @@ import { AppError, safeError } from '../ai/errors.cjs'
 import { assertTrustedSender, validatePayload } from './validation.cjs'
 import { startRecordingSchema, recordingRefSchema, resumeRecordingSchema, audioChunkSchema, noteSchema, pinSchema, searchRecordingsSchema } from '../../shared/session-contracts.cjs'
 import type { SessionIntelligence } from '../ai/session-intelligence.cjs'
-export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: string, repository: WorkspaceRepository, ai: AIService, realtime: RealtimeService, intelligence: SessionIntelligence, interviews: InterviewService) {
+export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: string, repository: WorkspaceRepository, ai: AIService, realtime: RealtimeService, intelligence: SessionIntelligence, interviews: InterviewService, learning: LearningService) {
   const busy = new Set<number>(); const requests = new Map<number, number[]>()
   const sender = (event: IpcMainInvokeEvent) => {
     const window = getWindow(); const frame = event.senderFrame
@@ -48,6 +50,17 @@ export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: 
   handle('ai:realtime-connect', realtimeConnectSchema, (input, owner) => realtime.connect(owner, input.topic), true)
   handle('ai:realtime-send', realtimeSendSchema, (input, owner) => realtime.send(owner, input.connectionId, input.text), true)
   handle('ai:realtime-close', realtimeCloseSchema, (input, owner) => realtime.close(owner, input.connectionId))
+  handle('learning:load', none, () => learning.load())
+  handle('learning:analyze-gaps', none, () => learning.analyzeGaps(), true)
+  handle('learning:discover', discoveryInputSchema, input => learning.discover(input), true)
+  handle('learning:save-resource', resourceApproveSchema, input => learning.saveResource(input.id,input.approved))
+  handle('learning:verify-resource', learningRefSchema, input => learning.verifyResource(input.id), true)
+  handle('learning:open-resource', learningRefSchema, input => learning.openResource(input.id))
+  handle('learning:propose', planInputSchema, input => learning.propose(input), true)
+  handle('learning:plan-action', planActionSchema, input => learning.planAction(input.id,input.action))
+  handle('learning:edit-task', taskEditSchema, input => learning.editTask(input.planId,input.taskId,input.task))
+  handle('learning:task-action', taskActionSchema, input => learning.taskAction(input.planId,input.taskId,input.action))
+  handle('learning:assess', taskAnswerSchema, input => learning.assess(input.planId,input.taskId,input.answer), true)
   handle('interviews:start', interviewConfigSchema, (input, owner) => interviews.start(owner, input), true)
   handle('interviews:get', interviewRefSchema, input => interviews.get(input.id))
   handle('interviews:list', none, () => interviews.repository.list())
