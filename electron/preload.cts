@@ -2,6 +2,11 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { CompanionBridge } from '../shared/contracts.cjs'
 // Type imports are erased: the sandboxed preload requires only Electron.
 const bridge: CompanionBridge = {
+  actions: {
+    list: () => ipcRenderer.invoke('actions:list',null), propose: input => ipcRenderer.invoke('actions:propose',input), edit: input => ipcRenderer.invoke('actions:edit',input), approve: input => ipcRenderer.invoke('actions:approve',input), reject: input => ipcRenderer.invoke('actions:reject',input), execute: input => ipcRenderer.invoke('actions:execute',input), completeTask: input => ipcRenderer.invoke('actions:complete-task',input),
+    cancelGoogleConnect: () => ipcRenderer.invoke('google:cancel-connect',null),
+    integrations: () => ipcRenderer.invoke('google:status',null), saveGoogleClient: input => ipcRenderer.invoke('google:save-client',input), connectGoogle: input => ipcRenderer.invoke('google:connect',input), disconnectGoogle: input => ipcRenderer.invoke('google:disconnect',input),
+  },
   learning: {
     load: () => ipcRenderer.invoke('learning:load',null), analyzeGaps: () => ipcRenderer.invoke('learning:analyze-gaps',null), discover: input => ipcRenderer.invoke('learning:discover',input),
     saveResource: input => ipcRenderer.invoke('learning:save-resource',input), verifyResource: input => ipcRenderer.invoke('learning:verify-resource',input), openResource: input => ipcRenderer.invoke('learning:open-resource',input),

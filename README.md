@@ -30,7 +30,7 @@ The build creates `dist/` and `dist-electron/`. `npm start` opens the production
 - Filterable opportunities, details, bookmarks, search, and empty states.
 - Locally saved preferences, collapsible navigation, light/dark themes, and Ctrl/Cmd+K workspace search.
 
-Offline practice uses scripted responses. Live AI uses the official OpenAI JavaScript SDK in Electron main. Opportunities remain illustrative; enrollment and applications are not connected. Live AI uses your language and learning-level preferences; the interface remains English. Reminder scheduling and third-party integrations remain upcoming.
+Offline practice uses scripted responses. Live AI uses the official OpenAI JavaScript SDK in Electron main. Opportunities remain illustrative; enrollment and applications are not connected. Live AI uses your language and learning-level preferences; the interface remains English. Calendar study reminders and Gmail follow-ups are available through reviewed Action Center proposals; preference-only desktop reminders and Notion remain upcoming.
 
 ## Configure OpenAI locally
 
@@ -74,7 +74,7 @@ Pause stops device tracks, drains the last received audio turn for up to five se
 
 End saves metadata and transcript before attempting a summary, so a quota, network, parsing, or configuration failure cannot lose the session. Summaries can be generated or retried after ending. They include topics, concepts and explanations, conclusions, assignments/actions, knowledge gaps/questions, and recommended next steps. Strict JSON schemas validate all responses. Every action must quote an exact substring from a finalized excerpt, with its stable ID. Explicit assignments and AI-suggested activities have separate labels; review the evidence because classification is still an AI judgment. Actions are not automatically added to the planner.
 
-Search recorded sessions by title, topic, goals, transcript text, or summary; guided practice has a separate search field. Session history includes interrupted and completed sessions, highlights, evidence, and summaries. No resource discovery, calendar, or email integration is included.
+Search recorded sessions by title, topic, goals, transcript text, or summary; guided practice has a separate search field. Session history includes interrupted and completed sessions, highlights, evidence, and summaries. Recorded sessions do not execute resource discovery, calendar, or email actions directly.
 
 Tests cover lifecycle transitions, consent and ownership, audio ordering, duplicate/out-of-order transcription events, partial transcript recovery, safe key redaction, restart persistence, literal search, strict summary extraction/evidence, and PCM encoding. Native Electron tests load the AudioWorklet under CSP, verify unauthorized microphone denial and consented synthetic PCM capture with a mocked transport, confirm pause stops audio packets, and exercise notes/pause/resume/search across restart. Tests do not record real devices or make billed API calls. Live microphone/system capture still needs verification on your hardware with your own key and consent.
 
@@ -108,8 +108,14 @@ Save useful resources locally, then open **Learning Planner → Personalized pla
 
 Saved text activities, criteria, plans, completion, source metadata, and practice history work offline; search, generation, link checks, external pages, and AI feedback need connectivity. Practice answers use schema-validated 0–5 feedback with exact answer excerpts. Editing retains prior attempts with question/criteria and revision snapshots; improvement comparisons use the same task revision and do not claim mastery. Learning pages are opened only by explicit source clicks through a narrow resource-ID IPC operation.
 
-Migration 5 adds discovered resources, personalized plans, and gap analysis storage. Suggested results and proposals also persist so unfinished review survives restarts. Approved library items are deduplicated without losing approval on rediscovery. Resources referenced by non-rejected plans cannot be unsaved until their attachments are removed or the plan rejected. No external calendar/email execution is included.
+Migration 5 adds discovered resources, personalized plans, and gap analysis storage. Suggested results and proposals also persist so unfinished review survives restarts. Approved library items are deduplicated without losing approval on rediscovery. Resources referenced by non-rejected plans cannot be unsaved until their attachments are removed or the plan rejected. Resource discovery/planning do not execute external services directly; reviewed external actions use the MCP Action Execution layer below.
 
 Tests use mocked search/verification/AI transports and isolated databases. They cover citation-only normalization, deduplication, private-network/redirect protection, strict planning schemas, task prerequisites and decisions, assessment evidence/concurrent edits, approval persistence, and a native discovery-to-plan-to-practice journey across restart. No test makes billed API calls or live third-party verification requests.
 
 Official reference: [OpenAI web search and source citations](https://developers.openai.com/api/docs/guides/tools-web-search).
+
+## MCP Action Execution
+
+An official-SDK local stdio server exposes learning tools, proposals, approved action execution, real-source opportunity search, and watch-preference registration. Open **Action Center** to review exact proposals; configure Google Desktop OAuth in Settings for Calendar/Gmail. Tokens use OS encryption, approvals bind payload revisions and connections, and atomic idempotency records prevent duplicate execution. Email drafts are local; uncertain Gmail sends are never automatically retried.
+
+See [MCP setup, tools, authorization, and execution examples](docs/MCP.md). No remote backend or unrelated microservice is added.

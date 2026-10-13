@@ -1,3 +1,5 @@
+import { proposeActionSchema,actionRefSchema,actionApprovalSchema,actionEditSchema,googleClientSchema,googleFeatureInputSchema } from '../../shared/action-contracts.cjs'
+import type { createActionRuntime } from '../actions/runtime.cjs'
 import { discoveryInputSchema,planInputSchema,learningRefSchema,resourceApproveSchema,planActionSchema,taskEditSchema,taskActionSchema,taskAnswerSchema } from '../../shared/learning-contracts.cjs'
 import type { LearningService } from '../ai/learning-service.cjs'
 import { interviewConfigSchema, interviewRefSchema, interviewAnswerSchema, interviewResumeSchema, interviewPollSchema } from '../../shared/interview-contracts.cjs'
@@ -12,7 +14,7 @@ import { AppError, safeError } from '../ai/errors.cjs'
 import { assertTrustedSender, validatePayload } from './validation.cjs'
 import { startRecordingSchema, recordingRefSchema, resumeRecordingSchema, audioChunkSchema, noteSchema, pinSchema, searchRecordingsSchema } from '../../shared/session-contracts.cjs'
 import type { SessionIntelligence } from '../ai/session-intelligence.cjs'
-export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: string, repository: WorkspaceRepository, ai: AIService, realtime: RealtimeService, intelligence: SessionIntelligence, interviews: InterviewService, learning: LearningService) {
+export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: string, repository: WorkspaceRepository, ai: AIService, realtime: RealtimeService, intelligence: SessionIntelligence, interviews: InterviewService, learning: LearningService, actions: ReturnType<typeof createActionRuntime>) {
   const busy = new Set<number>(); const requests = new Map<number, number[]>()
   const sender = (event: IpcMainInvokeEvent) => {
     const window = getWindow(); const frame = event.senderFrame
@@ -50,6 +52,18 @@ export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: 
   handle('ai:realtime-connect', realtimeConnectSchema, (input, owner) => realtime.connect(owner, input.topic), true)
   handle('ai:realtime-send', realtimeSendSchema, (input, owner) => realtime.send(owner, input.connectionId, input.text), true)
   handle('ai:realtime-close', realtimeCloseSchema, (input, owner) => realtime.close(owner, input.connectionId))
+  handle('actions:list', none, () => { actions.repository.recoverStale(); return actions.repository.list(undefined,100).map(a=>({...a,taskCompleted:actions.repository.tasks().some(t=>t.id===a.id&&t.done)})) })
+  handle('actions:propose', proposeActionSchema, input => actions.engine.propose(input))
+  handle('actions:edit', actionEditSchema, input => actions.engine.edit(input.id,input.action,input.rationale))
+  handle('actions:approve', actionApprovalSchema, input => actions.engine.approve(input.id,input))
+  handle('actions:reject', actionRefSchema, input => actions.engine.reject(input.id))
+  handle('actions:execute', actionRefSchema, input => actions.engine.execute(input.id), true)
+  handle('actions:complete-task', actionRefSchema, input => { actions.repository.completeTask(input.id); return null })
+  handle('google:cancel-connect', none, () => actions.oauth.cancelConnect())
+  handle('google:status', none, () => actions.oauth.status())
+  handle('google:save-client', googleClientSchema, input => actions.oauth.saveClient(input))
+  handle('google:connect', googleFeatureInputSchema, input => actions.oauth.connect(input.feature))
+  handle('google:disconnect', googleFeatureInputSchema, input => actions.oauth.disconnect(input.feature))
   handle('learning:load', none, () => learning.load())
   handle('learning:analyze-gaps', none, () => learning.analyzeGaps(), true)
   handle('learning:discover', discoveryInputSchema, input => learning.discover(input), true)
@@ -85,5 +99,5 @@ export function registerIPC(getWindow: () => BrowserWindow | null, expectedURL: 
   handle('intelligence:note', noteSchema, (input, owner) => intelligence.note(owner, input.id, input.text))
   handle('intelligence:pin', pinSchema, input => intelligence.pin(input.id, input.segmentId, input.highlighted))
   handle('intelligence:summarize', recordingRefSchema, input => intelligence.summarize(input.id), true)
-  return (owner: number) => { realtime.closeOwner(owner); intelligence.closeOwner(owner); interviews.closeOwner(owner); requests.delete(owner); busy.delete(owner) }
+  return (owner: number) => { actions.oauth.cancelConnect(); realtime.closeOwner(owner); intelligence.closeOwner(owner); interviews.closeOwner(owner); requests.delete(owner); busy.delete(owner) }
 }
