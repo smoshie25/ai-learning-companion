@@ -113,6 +113,25 @@ test('voice protocol persists duplicate-safe transcripts, bounded audio, context
  socket.socket.emit('close');assert.equal(x.repo.get(s.id).state,'interrupted')
  }finally{x.close()}
 })
+test('voice answers allow thinking pauses without client commits or follow-ups and retain patient detection on resume',async()=>{
+ let socket;const x=setup(':memory:',()=>socket=new Socket())
+ try{
+  let s=await x.service.start(1,{...cfg,mode:'voice',consent:true});await x.service.connect(1,s.id)
+  const update=socket.sent.find(e=>e.type==='session.update');assert.deepEqual(update.session.audio.input.turn_detection,{type:'semantic_vad',eagerness:'low',create_response:true,interrupt_response:false});assert.ok(update.session.instructions.includes('Brief pauses, hesitation'))
+  const pcm=Buffer.alloc(4800).toString('base64');x.service.audio(1,s.id,0,pcm)
+  socket.emit('input_audio_buffer.speech_started',{item_id:'thinking-answer'})
+  socket.emit('input_audio_buffer.speech_stopped',{item_id:'thinking-answer'})
+  socket.emit('conversation.item.input_audio_transcription.delta',{item_id:'thinking-answer',delta:'I would start by '})
+  x.service.audio(1,s.id,1,pcm);socket.emit('input_audio_buffer.speech_started',{item_id:'thinking-answer'})
+  socket.emit('conversation.item.input_audio_transcription.delta',{item_id:'thinking-answer',delta:'comparing the query plans.'})
+  assert.equal(socket.sent.filter(e=>e.type==='response.create').length,1,'Only the opening question is requested by the client')
+  assert.equal(socket.sent.filter(e=>e.type==='input_audio_buffer.commit').length,0,'Thinking pauses must not force submission')
+  assert.equal(x.repo.get(s.id).turns[0].text,'I would start by comparing the query plans.');assert.equal(x.repo.get(s.id).turns[0].status,'partial')
+  socket.emit('input_audio_buffer.committed',{item_id:'thinking-answer'});socket.emit('conversation.item.input_audio_transcription.completed',{item_id:'thinking-answer',transcript:'I would start by comparing the query plans.'})
+  await x.service.pause(1,s.id);s=await x.service.resume(1,s.id,'voice',true);await x.service.connect(1,s.id)
+  assert.equal(socket.sent.find(e=>e.type==='session.update').session.audio.input.turn_detection.eagerness,'low');assert.equal(socket.sent.some(e=>e.type==='input_audio_buffer.append'),false)
+ }finally{x.close()}
+})
 test('duration enforcement and overlapping operations cannot add late answers',async()=>{
  const x=setup()
  try {

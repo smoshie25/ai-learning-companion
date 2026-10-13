@@ -80,14 +80,14 @@ test('consented Realtime voice uses PCM playback and capture, pauses and switche
   const {EventEmitter}=load('node:events')
   const Service=load(root+'/dist-electron/electron/ai/interview-service.cjs').InterviewService
   const original=Service.prototype.connect
-  const counters={chunks:0}
+  const counters={chunks:0,turnDetection:null as any}
   ;(globalThis as any).interviewAudio=counters
   Service.prototype.connect=async function(owner:number,id:string){
    this.factory=()=>{
     const socket=new EventEmitter() as any;socket.socket=new EventEmitter();socket.socket.bufferedAmount=0
     socket.close=()=>socket.socket.emit('close')
     socket.send=(e:any)=>{
-     if(e.type==='session.update')setImmediate(()=>socket.emit('session.updated',{}))
+     if(e.type==='session.update'){counters.turnDetection=e.session.audio.input.turn_detection;setImmediate(()=>socket.emit('session.updated',{}))}
      if(e.type==='response.create')setImmediate(()=>{
       socket.emit('response.created',{})
       socket.emit('response.output_audio_transcript.done',{item_id:'question-1',transcript:'Tell me about a problem you solved.'})
@@ -116,6 +116,7 @@ test('consented Realtime voice uses PCM playback and capture, pauses and switche
  await expect(page.getByText('Tell me about a problem you solved.',{exact:true})).toBeVisible()
  await expect(page.getByText('I compared two approaches to solve the problem.',{exact:true})).toBeVisible()
  await expect.poll(()=>app.evaluate(()=>(globalThis as any).interviewAudio.chunks)).toBeGreaterThan(3)
+ expect(await app.evaluate(()=>(globalThis as any).interviewAudio.turnDetection)).toEqual({type:'semantic_vad',eagerness:'low',create_response:true,interrupt_response:false})
  await page.getByRole('button',{name:'Pause interview',exact:true}).click()
  await expect(page.getByText('paused · microphone off',{exact:true})).toBeVisible()
  const count=await app.evaluate(()=>(globalThis as any).interviewAudio.chunks)

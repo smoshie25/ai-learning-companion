@@ -98,7 +98,9 @@ export class InterviewService {
    await this.wait(socket,'session.created')
    if(!current())throw new AppError('INVALID_STATE','The interview was paused while connecting.')
    const updated=this.wait(socket,'session.updated');void updated.catch(()=>{})
-   socket.send({type:'session.update',session:{type:'realtime',instructions:interviewInstructions(s),output_modalities:['audio'],audio:{input:{format:{type:'audio/pcm',rate:24000},transcription:{model:this.ai.config.transcriptionModel},turn_detection:{type:'server_vad',create_response:true,interrupt_response:false}},output:{format:{type:'audio/pcm',rate:24000},voice:'marin'}}}})
+   // Sentence-aware detection leaves room for thinking pauses instead of ending
+   // a candidate answer after the default server VAD silence window.
+   socket.send({type:'session.update',session:{type:'realtime',instructions:interviewInstructions(s),output_modalities:['audio'],audio:{input:{format:{type:'audio/pcm',rate:24000},transcription:{model:this.ai.config.transcriptionModel},turn_detection:{type:'semantic_vad',eagerness:'low',create_response:true,interrupt_response:false}},output:{format:{type:'audio/pcm',rate:24000},voice:'marin'}}}})
    await updated
    if(!current())throw new AppError('INVALID_STATE','The interview was paused while connecting.')
    for(const turn of s.turns.filter(t=>t.status==='final'))socket.send({type:'conversation.item.create',item:{type:'message',role:turn.role,content:[turn.role==='user'?{type:'input_text',text:turn.text}:{type:'output_text',text:turn.text}]}})
