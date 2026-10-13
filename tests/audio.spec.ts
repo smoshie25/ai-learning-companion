@@ -11,6 +11,9 @@ test('consented microphone capture produces PCM and releases fake device tracks 
     await app.evaluate((_electron, root) => {
       const load = process.getBuiltinModule('module').createRequire(root + '/package.json')
       const Service = load(root + '/dist-electron/electron/ai/session-intelligence.cjs').SessionIntelligence
+      const native=load('electron');let approvals=0
+      native.systemPreferences.getMediaAccessStatus=()=> 'granted'
+      native.dialog.showMessageBox=async()=>({response:++approvals===1?0:1})
       const counters = { chunks: 0, bytes: 0 }
       ;(globalThis as unknown as { audioTest: typeof counters }).audioTest = counters
       Service.prototype.connect = async function (owner: number, id: string) { this.owned(owner, id); return null }
@@ -39,6 +42,10 @@ test('consented microphone capture produces PCM and releases fake device tracks 
     await expect(page.getByRole('button', { name: 'Start learning session', exact: true })).toBeDisabled()
     await page.getByRole('checkbox', { name: /All participants consent/ }).check()
     await page.getByRole('button', { name: 'Start learning session', exact: true }).click()
+    await expect(page.getByText('Microphone access was denied.', { exact: false })).toBeVisible()
+    await expect(page.getByText('Interrupted · audio is off', { exact: true })).toBeVisible()
+    expect(await app.evaluate(() => (globalThis as unknown as { audioTest: { chunks:number } }).audioTest.chunks)).toBe(0)
+    await page.getByRole('button', { name:'Resume session', exact:true }).click()
     await expect(page.getByText('Recording · sending audio to OpenAI', { exact: true })).toBeVisible()
     await expect.poll(() => app.evaluate(() => (globalThis as unknown as { audioTest: { chunks: number } }).audioTest.chunks)).toBeGreaterThan(0)
     await page.getByRole('button', { name: 'Pause session', exact: true }).click()

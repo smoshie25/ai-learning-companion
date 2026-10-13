@@ -1,3 +1,4 @@
+import {approveMicrophone} from './media/microphone-permission.cjs'
 import { createConnection } from 'node:net'
 import { DocumentService } from './documents/service.cjs'
 import { DocumentRepository } from './documents/repository.cjs'
@@ -10,7 +11,7 @@ import { LearningService } from './ai/learning-service.cjs'
 import { LearningRepository } from './persistence/learning-repository.cjs'
 import { InterviewRepository } from './persistence/interview-repository.cjs'
 import { InterviewService } from './ai/interview-service.cjs'
-import { app, BrowserWindow, session, dialog, desktopCapturer, safeStorage, shell } from 'electron'
+import { app, BrowserWindow, session, dialog, desktopCapturer, safeStorage, shell, systemPreferences } from 'electron'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { openDatabase } from './persistence/database.cjs'
@@ -89,8 +90,20 @@ app.whenReady().then(async () => {
     closeOwner = registerIPC(() => window, rendererURL, repository, ai, realtime, intelligence, interviews, learning, actions, documents)
     closeServices = () => { documents.close(); intelligence.closeAll(); interviews.closeAll(); realtime.closeAll(); db.close() }
     const trusted = (contents: Electron.WebContents | null) => !!contents && contents === window?.webContents && contents.mainFrame.url.split('#')[0] === rendererURL
-    session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) => callback(trusted(contents) && permission === 'media' && details.isMainFrame && 'mediaTypes' in details && details.mediaTypes?.length === 1 && details.mediaTypes[0] === 'audio' && (intelligence.canCapture(contents.id) || interviews.canCapture(contents.id))))
-    session.defaultSession.setPermissionCheckHandler((contents, permission, _origin, details) => trusted(contents) && details.isMainFrame && permission === 'media' && details.mediaType === 'audio' && (intelligence.canCapture(contents!.id) || interviews.canCapture(contents!.id)))
+    session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) => {
+      const target=window
+      if(permission!=='media'||!target||!('mediaTypes' in details)){callback(false);return}
+      void approveMicrophone({isMainFrame:details.isMainFrame,requestingUrl:details.requestingUrl,rendererURL,mediaTypes:details.mediaTypes},{
+        authorized:()=>!target.isDestroyed()&&trusted(contents)&&(intelligence.canCapture(contents.id)||interviews.canCapture(contents.id)),
+        platform:process.platform,
+        status:()=>['win32','darwin'].includes(process.platform)?systemPreferences.getMediaAccessStatus('microphone'):'unknown',
+        confirm:async()=>{const choice=await dialog.showMessageBox(target,{type:'question',title:'Allow microphone listening?',message:'Allow Companion to listen to your microphone?',detail:'Microphone audio is sent to OpenAI for this consented learning session or voice interview. Raw audio is not saved. Cancel to keep audio off.',buttons:['Cancel','Allow microphone'],defaultId:0,cancelId:0});return choice.response===1},
+        askOS:()=>systemPreferences.askForMediaAccess('microphone'),
+        offerSettings:async()=>{const supported=['win32','darwin'].includes(process.platform);const choice=await dialog.showMessageBox(target,{type:'info',title:'Microphone access is blocked',message:'Your operating system is blocking microphone access.',detail:process.platform==='win32'?'In Windows Settings, turn on Microphone access and Let desktop apps access your microphone, then return and resume listening.':'Allow microphone access for Companion in system privacy settings, restart the app if needed, then resume listening.',buttons:supported?['Cancel','Open microphone settings']:['OK'],defaultId:0,cancelId:0});if(supported&&choice.response===1&&!target.isDestroyed())await shell.openExternal(process.platform==='win32'?'ms-settings:privacy-microphone':'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone')},
+      }).then(callback,()=>callback(false))
+    })
+    // A check is not user approval. Route each new capture through the request handler.
+    session.defaultSession.setPermissionCheckHandler(()=>false)
     session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
       const target = window
       if (process.platform !== 'win32' || !target || request.frame !== target.webContents.mainFrame || !trusted(target.webContents) || !request.audioRequested || !intelligence.canCapture(target.webContents.id, true)) { callback({}); return }

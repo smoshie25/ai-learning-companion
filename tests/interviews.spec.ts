@@ -78,6 +78,7 @@ test('consented Realtime voice uses PCM playback and capture, pauses and switche
  await app.evaluate((_electron,root)=>{
   const load=process.getBuiltinModule('module').createRequire(root+'/package.json')
   const {EventEmitter}=load('node:events')
+  const native=load('electron');native.systemPreferences.getMediaAccessStatus=()=> 'granted';native.dialog.showMessageBox=async()=>({response:1})
   const Service=load(root+'/dist-electron/electron/ai/interview-service.cjs').InterviewService
   const original=Service.prototype.connect
   const counters={chunks:0,turnDetection:null as any}
