@@ -191,3 +191,5 @@ test('ending voice drains the final committed answer while retaining partial exc
  assert.equal(socket.closed,true);assert.equal(x.service.canCapture(1),false)
  }finally{x.close()}
 })
+
+test('voice microphone activation approval is invalidated by pause, text mode and view closure',async()=>{const x=setup();try{const s=await x.service.start(1,{...cfg,mode:'voice',consent:true});const first=x.service.capturePermissionKey(1);assert.ok(first);assert.equal(x.service.capturePermissionKey(2),null);await x.service.pause(1,s.id);assert.equal(x.service.capturePermissionKey(1),null);await x.service.resume(1,s.id,'voice',true);x.repo.save({...x.repo.get(s.id),activeSince:s.activeSince});assert.notEqual(x.service.capturePermissionKey(1),first);await x.service.pause(1,s.id);await x.service.resume(1,s.id,'text',false);assert.equal(x.service.capturePermissionKey(1),null);await x.service.pause(1,s.id);await x.service.resume(1,s.id,'voice',true);x.service.closeOwner(1);assert.equal(x.service.capturePermissionKey(1),null)}finally{x.close()}})

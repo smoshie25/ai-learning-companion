@@ -15,3 +15,5 @@ export async function approveMicrophone(request:MicrophonePermissionRequest,deps
   return eligible()
  }catch{return false}
 }
+
+export function canRequestSystemAudio(request:{trusted:boolean;isMainFrame:boolean;requestingUrl?:string;rendererURL:string;authorized:boolean}):boolean{return request.trusted&&request.isMainFrame&&request.authorized&&(!request.requestingUrl||request.requestingUrl.split('#')[0]===request.rendererURL)}

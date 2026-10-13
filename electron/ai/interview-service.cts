@@ -11,12 +11,14 @@ const count=(value:unknown)=>typeof value==='number'&&Number.isSafeInteger(value
 type Run = { owner:number; socket?:Socket; sequence:number; bytes:number; started:number; captureAt:number; uncommitted:number; packets:number[]; audio:{sequence:number;pcm:string}[]; cursor:number; timer?:ReturnType<typeof setTimeout>; responseTimer?:ReturnType<typeof setTimeout> }
 export class InterviewService {
  private owners=new Map<string,number>()
+ private captureActivations=new Map<string,string>()
  private runs=new Map<string,Run>()
  private busy=new Set<string>()
  private deadlines=new Map<string,ReturnType<typeof setTimeout>>()
  private disposed=false
  constructor(readonly repository:InterviewRepository,private ai:AIService,private usage:UsageRepository,private factory:()=>Socket=()=>new OpenAIRealtimeWS({model:ai.config.realtimeModel,options:{handshakeTimeout:ai.config.timeoutMs,maxPayload:1024*1024}},ai.getClient()) as unknown as Socket) {repository.recover()}
  hasAIWork() {return this.runs.size>0||this.busy.size>0}
+ capturePermissionKey(owner:number):string|null {for(const [id,current] of this.owners){const item=this.repository.get(id);if(current===owner&&item.state==='active'&&item.config.mode==='voice'&&item.config.consent)return this.captureActivations.has(id)?'interview:'+id+':'+this.captureActivations.get(id):null}return null}
  canCapture(owner:number) {return [...this.owners].some(([id,o])=>o===owner&&this.repository.get(id).state==='active'&&this.repository.get(id).config.mode==='voice'&&this.repository.get(id).config.consent)}
  private owned(owner:number,id:string) {if(this.owners.get(id)!==owner) throw new AppError('FORBIDDEN','Resume this interview in the application window before continuing.'); return this.repository.get(id)}
  private live() {if(this.ai.status().selected==='offline') throw new AppError('OFFLINE_MODE','Select an OpenAI configuration in Settings before starting an AI interview.'); this.ai.getClient()}
@@ -31,7 +33,7 @@ export class InterviewService {
   const config=interviewConfigSchema.parse(input);this.live()
   if([...this.owners].some(([id,o])=>o===owner&&this.repository.get(id).state==='active'))throw new AppError('BUSY','Pause or end your current interview first.')
   const now=new Date().toISOString();const id=randomUUID()
-  this.repository.save({id,config,...(studyContext?{studyContext}:{}),state:'active',startedAt:now,activeSince:now,endedAt:null,elapsedMs:0,turns:[],notices:[],assessment:null,evaluatedAt:null});this.owners.set(id,owner)
+  this.repository.save({id,config,...(studyContext?{studyContext}:{}),state:'active',startedAt:now,activeSince:now,endedAt:null,elapsedMs:0,turns:[],notices:[],assessment:null,evaluatedAt:null});this.owners.set(id,owner);this.captureActivations.set(id,randomUUID())
   this.arm(id);if(config.mode==='text')await this.next(id)
   return this.repository.get(id)
  }
@@ -55,7 +57,7 @@ export class InterviewService {
   this.live();if(mode==='voice'&&!consent)throw new AppError('CONSENT_REQUIRED','Consent is required for microphone audio sent to OpenAI.')
   if([...this.owners].some(([other,o])=>o===owner&&other!==id&&this.repository.get(other).state==='active'))throw new AppError('BUSY','Pause the current interview first.')
   if(this.elapsed(s)>=s.config.durationMinutes*60000)return this.finish(id)
-  this.owners.set(id,owner);this.repository.save({...s,config:{...s.config,mode,consent},state:'active',activeSince:new Date().toISOString()})
+  this.owners.set(id,owner);this.captureActivations.set(id,randomUUID());this.repository.save({...s,config:{...s.config,mode,consent},state:'active',activeSince:new Date().toISOString()})
   this.arm(id);if(mode==='text'&&!(s.turns.at(-1)?.role==='assistant'&&s.turns.at(-1)?.status==='final'))await this.next(id)
   return this.repository.get(id)
  }
@@ -119,7 +121,7 @@ export class InterviewService {
   return null
  }
  poll(owner:number,id:string,after:number) {this.owned(owner,id);const run=this.runs.get(id);if(run)run.audio=run.audio.filter(a=>a.sequence>after);return {session:this.get(id),audio:run?.audio??[],cursor:run?.cursor??after}}
- closeOwner(owner:number) {for(const [id,o] of this.owners)if(o===owner){const s=this.repository.get(id);if(s.state==='active')this.interrupt(id,'The interview view closed. Received answers were retained.');this.owners.delete(id)}}
+ closeOwner(owner:number) {for(const [id,o] of this.owners)if(o===owner){const s=this.repository.get(id);if(s.state==='active')this.interrupt(id,'The interview view closed. Received answers were retained.');this.owners.delete(id);this.captureActivations.delete(id)}}
  closeAll() {for(const [id] of this.owners){const s=this.repository.get(id);if(s.state==='active')this.interrupt(id,'The app closed during an interview. Received answers were retained.')}this.disposed=true;for(const id of this.runs.keys())this.stopSocket(id);this.owners.clear()}
  private record(operation:string,started:number,usage?:{input_tokens?:number;output_tokens?:number;total_tokens?:number}|null,errorCode?:string) {if(!this.disposed)this.usage.record({id:randomUUID(),operation,model:this.ai.config.realtimeModel,status:errorCode?'error':'success',inputTokens:count(usage?.input_tokens),outputTokens:count(usage?.output_tokens),totalTokens:count(usage?.total_tokens),latencyMs:Date.now()-started,createdAt:new Date().toISOString(),errorCode:errorCode??null})}
 }

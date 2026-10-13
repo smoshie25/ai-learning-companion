@@ -47,6 +47,7 @@ export async function captureSessionAudio(session: Pick<RecordingSnapshot, 'sour
    } catch (error) {
     await stop()
     const name=error instanceof Error?error.name:''
+    if(['NotAllowedError','PermissionDeniedError','SecurityError'].includes(name)&&session.source==='microphone_system'&&streams.length>0)throw new Error('System audio sharing was denied. Your microphone was opened successfully. Approve the separate system audio capture dialog, or start a microphone-only session. On Windows, system audio capture must also be supported by your audio setup.')
     if(['NotAllowedError','PermissionDeniedError','SecurityError'].includes(name))throw new Error('Microphone access was denied. Allow microphone access in your system privacy settings (on Windows, enable Microphone access and Let desktop apps access your microphone), then resume and approve the microphone prompt. System audio also requires its separate capture confirmation.')
     if(name==='NotFoundError')throw new Error('No microphone was found. Connect or enable a microphone, then resume listening.')
     if(name==='NotReadableError')throw new Error('The microphone could not be opened. Check whether another app is using it and whether the device is enabled, then resume listening.')

@@ -165,3 +165,5 @@ test('audio worklet mixes mono PCM16, clamps samples, and flushes the final part
   const view = new DataView(messages[0]); assert.equal(view.getInt16(0, true), -32768); assert.equal(view.getInt16(2, true), 0); assert.equal(view.getInt16(4, true), 32767)
   assert.equal(messages[1], 'stopped'); assert.equal(processor.process([]), false)
 })
+
+test('microphone activation keys are owner-scoped and rotate on resume independently of clock timestamps',async()=>{const {db,service,repo}=setup();try{const s=service.start(1,input('microphone'));const first=service.capturePermissionKey(1);assert.ok(first);assert.equal(service.capturePermissionKey(2),null);await service.pause(1,s.id);assert.equal(service.capturePermissionKey(1),null);service.resume(1,s.id,true);repo.save({...repo.get(s.id),activeSince:s.activeSince,consentAt:s.consentAt});assert.notEqual(service.capturePermissionKey(1),first);service.interrupt(1,s.id);assert.equal(service.capturePermissionKey(1),null);service.resume(1,s.id,true);service.closeOwner(1);assert.equal(service.capturePermissionKey(1),null)}finally{service.closeAll();db.close()}})

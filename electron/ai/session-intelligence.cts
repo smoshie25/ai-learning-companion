@@ -8,6 +8,7 @@ import type { RecordingSnapshot, Segment, StartRecording } from '../../shared/se
 type Run = { owner: number; socket: OpenAIRealtimeWS; prefix: string; ready: boolean; sequence: number; bytes: number; acceptedBytes: number; audioStarted: number; packetTimes: number[]; offset: number; commits: number[]; items: Map<string, Segment>; pending: Set<string>; finished: Set<string>; events: Set<string>; closing: boolean; lastAudio: number; watchdog?: ReturnType<typeof setInterval> }
 export class SessionIntelligence {
   private owners = new Map<string, number>()
+  private captureActivations=new Map<string,string>()
   private runs = new Map<string, Run>()
   private controls = new Set<string>()
   private extracting = new Set<string>()
@@ -23,9 +24,13 @@ export class SessionIntelligence {
     if (input.source !== 'notes') { if (!input.consent) throw new AppError('CONSENT_REQUIRED', 'Recording requires participant consent.'); if (this.ai.status().selected === 'offline') throw new AppError('OFFLINE_MODE', 'Select an OpenAI configuration in Settings to transcribe audio.'); this.ai.getClient() }
     const now = new Date().toISOString(); const id = randomUUID()
     this.repository.save({ id, title: input.title, topic: input.topic, goals: input.goals, source: input.source, consentAt: input.source === 'notes' ? null : now, state: 'recording', startedAt: now, endedAt: null, elapsedMs: 0, activeSince: now, gaps: [], highlights: [], summary: null })
-    this.owners.set(id, owner); return this.repository.get(id)
+    this.owners.set(id, owner); this.captureActivations.set(id,randomUUID()); return this.repository.get(id)
   }
   canCapture(owner: number, system = false) { return [...this.owners].some(([id, current]) => { const item = this.repository.get(id); return owner === current && item.state === 'recording' && !!item.consentAt && (system ? item.source === 'microphone_system' : item.source !== 'notes') }) }
+  capturePermissionKey(owner:number):string|null {
+    for(const [id,current] of this.owners){const item=this.repository.get(id);if(current===owner&&item.state==='recording'&&item.consentAt&&item.source!=='notes')return this.captureActivations.has(id)?'learning:'+id+':'+this.captureActivations.get(id):null}
+    return null
+  }
   async connect(owner: number, id: string) {
     const session = this.owned(owner, id)
     if (session.state !== 'recording' || session.source === 'notes' || this.runs.has(id)) throw new AppError('INVALID_STATE', 'This session cannot open an audio connection now.')
@@ -131,7 +136,7 @@ export class SessionIntelligence {
     if (!['paused', 'interrupted'].includes(session.state)) throw new AppError('INVALID_STATE', 'Only a paused or interrupted session can resume.')
     if (session.source !== 'notes' && !consent) throw new AppError('CONSENT_REQUIRED', 'Confirm participant consent before resuming recording.')
     if (session.source !== 'notes') { if (this.ai.status().selected === 'offline') throw new AppError('OFFLINE_MODE', 'Select an OpenAI configuration in Settings to resume audio transcription.'); this.ai.getClient() }
-    this.owners.set(id, owner); this.repository.save({ ...session, state: 'recording', activeSince: new Date().toISOString(), consentAt: session.source === 'notes' ? null : new Date().toISOString() }); return this.repository.get(id)
+    this.owners.set(id, owner); this.captureActivations.set(id,randomUUID()); this.repository.save({ ...session, state: 'recording', activeSince: new Date().toISOString(), consentAt: session.source === 'notes' ? null : new Date().toISOString() }); return this.repository.get(id)
   }
   end(owner: number, id: string) { return this.control(id, async () => {
     // An interrupted session recovered after a restart can be ended without reopening capture.
@@ -139,7 +144,7 @@ export class SessionIntelligence {
     if (!this.owners.has(id) && ['paused', 'interrupted'].includes(session.state)) { this.noOther(owner, id); this.owners.set(id, owner) }
     this.owned(owner, id); if (session.state === 'ended') throw new AppError('INVALID_STATE', 'This session has already ended.')
     const stopped = await this.stop(owner, id); this.closeRun(id)
-    this.repository.save({ ...stopped, state: 'ended', activeSince: null, endedAt: new Date().toISOString() }); this.owners.delete(id); return this.repository.get(id)
+    this.repository.save({ ...stopped, state: 'ended', activeSince: null, endedAt: new Date().toISOString() }); this.owners.delete(id); this.captureActivations.delete(id); return this.repository.get(id)
   }) }
   note(owner: number, id: string, text: string) { const session = this.owned(owner, id); if (session.state !== 'recording' || session.source !== 'notes') throw new AppError('INVALID_STATE', 'Notes can be added only during an active notes session.'); this.repository.segment(id, { id: randomUUID(), itemId: randomUUID(), text, status: 'final', source: 'note', offsetMs: session.elapsedMs + Date.now() - Date.parse(session.activeSince!), highlighted: false }); return this.repository.get(id) }
   pin(id: string, segmentId: string, highlighted: boolean) { const session = this.repository.get(id); const segment = session.segments.find(item => item.id === segmentId); if (!segment) throw new AppError('NOT_FOUND', 'Transcript excerpt unavailable.'); this.repository.segment(id, { ...segment, highlighted }); const run = this.runs.get(id); if (run) for (const item of run.items.values()) if (item.id === segmentId) item.highlighted = highlighted; return this.repository.get(id) }
@@ -151,6 +156,6 @@ export class SessionIntelligence {
     catch { /* Live highlights are optional. Transcript persistence and recording continue. */ }
     finally { this.extracting.delete(id) }
   }
-  closeOwner(owner: number) { for (const [id, current] of this.owners) if (current === owner) { if (this.repository.get(id).state === 'recording') this.interrupt(owner, id, 'The session window closed or reloaded. Received transcript text is retained.'); this.closeRun(id); this.owners.delete(id) } }
+  closeOwner(owner: number) { for (const [id, current] of this.owners) if (current === owner) { if (this.repository.get(id).state === 'recording') this.interrupt(owner, id, 'The session window closed or reloaded. Received transcript text is retained.'); this.closeRun(id); this.owners.delete(id); this.captureActivations.delete(id) } }
   closeAll() { for (const owner of new Set(this.owners.values())) this.closeOwner(owner); this.disposed = true }
 }
